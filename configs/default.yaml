@@ -1,0 +1,49 @@
+stage1:
+  enabled: true
+  structural_checks_enabled: true
+  semantic_checks_enabled: true
+  semantic_threshold: 0.72
+  semantic_backend: heuristic  # heuristic | llm_judge | classifier
+  llm_judge_model: gpt-4o-mini
+  rug_pull_detection: true
+  quarantine_on_new_tools: false
+
+stage2:
+  enabled: true
+  schema_validation: true
+  sql_injection_detection: true
+  shell_injection_detection: true
+  prompt_injection_detection: true
+  path_traversal_detection: true
+  max_param_length: 10000
+
+stage3:
+  enabled: true
+  instruction_detection_enabled: true
+  instruction_detection_backend: heuristic
+  context_boundary_enforcement: true
+  hidden_content_detection: true
+  cross_call_correlation: true
+  max_chain_depth: 4
+  boundary_prefix: "[TOOL_RESPONSE_START]"
+  boundary_suffix: "[TOOL_RESPONSE_END]"
+
+alerts:
+  default_action_by_severity:
+    critical: block
+    high: block
+    medium: warn
+    low: pass
+    info: pass
+  log_all_alerts: true
+  alert_log_path: shieldmcp_alerts.jsonl
+
+proxy:
+  transport: stdio
+  host: 127.0.0.1
+  port: 8765
+
+registry_db_path: shieldmcp_registry.db
+log_level: INFO
+allowlisted_servers: []
+blocklisted_servers: []
