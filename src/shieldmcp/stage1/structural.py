@@ -45,18 +45,23 @@ MARKDOWN_INJECTION = re.compile(
 INSTRUCTION_PATTERNS = [
     re.compile(p, re.IGNORECASE)
     for p in [
-        r"\b(ignore|disregard|forget)\b.{0,30}\b(previous|above|prior|earlier)\b.{0,30}\b(instructions?|prompt|rules?)\b",
-        r"\b(you\s+(must|should|are|will|need\s+to))\b.{0,60}\b(instead|actually|really|always|also|first)\b",
+        r"\b(ignore|disregard|forget)\b.{0,30}\b(previous|above|prior|earlier|all|other|any)\b",
+        r"\b(you\s+(must|should|are|will|need\s+to))\b.{0,80}\b(instead|actually|really|always|also|first|never|before|after)\b",
         r"\bsystem\s*prompt\b",
-        r"\b(do\s+not|don'?t|never)\b.{0,30}\b(tell|reveal|show|mention|disclose)\b.{0,30}\b(user|human|anyone)\b",
+        r"\b(do\s+not|don'?t|never)\b.{0,40}\b(tell|reveal|show|mention|disclose|inform)\b.{0,30}\b(user|human|anyone)\b",
         r"\byou\s+are\s+(now|a|an)\b",
         r"\b(execute|run|call|invoke)\b.{0,30}\b(following|this|these)\b.{0,20}\b(command|function|tool|code)\b",
-        r"\b(override|bypass|skip)\b.{0,20}\b(safety|security|filter|check|validation)\b",
-        r"\b(exfiltrate|steal|extract|send)\b.{0,30}\b(data|credentials|tokens?|keys?|secrets?|password)\b",
+        r"\b(override|bypass|skip)\b.{0,30}\b(safety|security|filter|check|validation|rules?|instructions?|restrictions?)\b",
+        r"\b(exfiltrate|steal|extract|send|forward|leak)\b.{0,40}\b(data|credentials?|tokens?|keys?|secrets?|password|contents?|context|information)\b",
         r"\bpretend\s+(you|to\s+be)\b",
-        r"\b(before|after)\s+(responding|answering|replying)\b.{0,30}\b(first|always|must)\b",
-        r"\bIMPORTANT\s*:?\s*(ignore|override|you\s+must)\b",
+        r"\b(before|after)\s+(responding|answering|replying|returning|translating|converting|processing|reading)\b.{0,40}\b(first|always|must|call|send|you)\b",
+        r"\bIMPORTANT\s*:?\s*.{0,20}(ignore|override|you\s+must|call|execute|do\s+not)\b",
         r"\b(new|updated?|revised)\s+instructions?\b",
+        r"\b(you\s+must|always)\s+(also\s+)?(call|send|forward|upload|report|exfiltrate|include)\b",
+        r"\b(this\s+is\s+(required|mandatory|a\s+critical))\b.{0,40}\b(overrides?|do\s+not|never|must)\b",
+        r"\b(never|do\s+not)\s+(mention|reveal)\s+this\b",
+        r"\b(silently|secretly|covertly|quietly)\s+(call|send|forward|execute|upload|export)\b",
+        r"\brequired\s+by\s+the\s+service\b",
     ]
 ]
 

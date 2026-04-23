@@ -29,9 +29,13 @@ DIRECTIVE_KEYWORDS = [
     "disregard", "forget", "bypass", "skip", "pretend", "secretly",
     "actually", "really", "important", "critical", "mandatory",
     "execute", "invoke", "call this", "run this", "send to",
-    "do not tell", "do not reveal", "do not mention",
+    "do not tell", "do not reveal", "do not mention", "do not inform",
     "before responding", "after responding", "when asked",
     "regardless of", "no matter what", "under all circumstances",
+    "exfiltrate", "silently", "covertly", "required by the service",
+    "compliance", "you must call", "you should call", "never mention",
+    "before returning", "after reading", "before translating",
+    "overrides other", "overrides all", "override any",
 ]
 
 DIRECTIVE_PHRASES = [
