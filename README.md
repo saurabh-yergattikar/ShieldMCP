@@ -26,6 +26,9 @@ Server ──response──→ ShieldMCP [Stage 3: Response Analysis] ──→ 
 # Install
 pip install -e .
 
+# Launch the interactive web demo → http://127.0.0.1:8000
+shieldmcp demo
+
 # Generate default config
 shieldmcp init
 
@@ -37,6 +40,33 @@ shieldmcp proxy -- python your_mcp_server.py
 
 # Inspect the tool registry
 shieldmcp registry
+```
+
+## Interactive Demo
+
+`shieldmcp demo` starts a local, self-contained web interface that runs the **real**
+three-stage pipeline live — no API keys, no external network. Launch curated attacks
+from five threat families, watch each validation stage execute with per-token
+highlighting of the detected payload, and paste your own tool descriptions,
+parameters, or responses into the playground.
+
+```bash
+shieldmcp demo --host 127.0.0.1 --port 8000
+```
+
+This demonstration accompanies the EMNLP 2026 System Demonstration paper
+*"ShieldMCP: An Interactive System for Runtime Security of Model Context Protocol
+Tool Calls"* (`paper/`).
+
+### Reproduce the benchmark
+
+```bash
+# Framework-only eval (no API keys): 487 attacks + 200 benign, 40 servers
+python eval/run_evaluation.py --framework-only              # heuristic → 8.6% ASR
+python eval/run_evaluation.py --framework-only --classifier # DistilBERT backend
+
+# Per-call latency
+python eval/benchmarks/latency_benchmark.py --iterations 1000
 ```
 
 ## Configuration

@@ -199,8 +199,19 @@ def _get_token_classifier() -> Any:
         return _token_classifier
 
     try:
+        import os
+        from pathlib import Path
+
         from ..classifiers.token_classifier import InstructionTokenClassifier
-        _token_classifier = InstructionTokenClassifier()
+
+        # Prefer the fine-tuned model: env override, then the conventional path.
+        model_path = os.environ.get("SHIELDMCP_TOKEN_CLASSIFIER_MODEL")
+        if model_path is None:
+            default = Path("models/stage3_token_classifier")
+            if (default / "config.json").exists():
+                model_path = str(default)
+
+        _token_classifier = InstructionTokenClassifier(model_path=model_path)
         if not _token_classifier.available:
             logger.warning("Token classifier loaded but unavailable (missing deps), falling back to heuristic")
             _token_classifier = None

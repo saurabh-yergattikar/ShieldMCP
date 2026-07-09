@@ -187,13 +187,19 @@ def _print_results(all_stats: dict[str, dict[str, float]]) -> None:
     console.print(table)
 
 
-async def run_benchmark(iterations: int, warmup: int, output_dir: Path) -> dict:
+async def run_benchmark(
+    iterations: int, warmup: int, output_dir: Path, use_classifier: bool = False
+) -> dict:
     config = ShieldMCPConfig()
     config.registry_db_path = str(output_dir / "bench_registry.db")
+    if use_classifier:
+        config.stage1.semantic_backend = "classifier"
+        config.stage3.instruction_detection_backend = "classifier"
 
+    backend = "classifier (DistilBERT)" if use_classifier else "heuristic"
     console.print(Panel(
         f"[bold]ShieldMCP Latency Benchmark[/bold]\n"
-        f"Iterations: {iterations}  |  Warmup: {warmup}",
+        f"Iterations: {iterations}  |  Warmup: {warmup}  |  Backend: {backend}",
         border_style="cyan",
     ))
 
@@ -278,8 +284,14 @@ def main() -> None:
         "--output-dir", type=str, default="eval/results/output",
         help="Output directory for results JSON",
     )
+    parser.add_argument(
+        "--classifier", action="store_true",
+        help="Benchmark with fine-tuned DistilBERT classifiers loaded",
+    )
     args = parser.parse_args()
-    asyncio.run(run_benchmark(args.iterations, args.warmup, Path(args.output_dir)))
+    asyncio.run(
+        run_benchmark(args.iterations, args.warmup, Path(args.output_dir), args.classifier)
+    )
 
 
 if __name__ == "__main__":

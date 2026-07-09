@@ -53,13 +53,21 @@ async def run_framework_evaluation(
     attack_scenarios: list[AttackScenario],
     benign_scenarios: list[BenignScenario],
     output_dir: Path,
+    use_classifier: bool = False,
 ) -> dict:
     """Run evaluation using only the ShieldMCP framework (no LLM calls needed).
 
     Tests whether ShieldMCP's detection stages correctly identify attacks
     in tool descriptions and responses, and correctly pass benign content.
     """
-    config = ShieldMCPConfig()
+    def _make_config() -> ShieldMCPConfig:
+        cfg = ShieldMCPConfig()
+        if use_classifier:
+            cfg.stage1.semantic_backend = "classifier"
+            cfg.stage3.instruction_detection_backend = "classifier"
+        return cfg
+
+    config = _make_config()
     config.registry_db_path = str(output_dir / "eval_registry.db")
 
     results = {
@@ -131,7 +139,7 @@ async def run_framework_evaluation(
     # --- Benign Scenarios ---
     console.print(f"\n[bold]Running {len(benign_scenarios)} benign scenarios...[/bold]")
 
-    pipeline2 = ShieldPipeline(ShieldMCPConfig())
+    pipeline2 = ShieldPipeline(_make_config())
     pipeline2.config.registry_db_path = str(output_dir / "eval_registry_benign.db")
     await pipeline2.initialize()
 
@@ -428,6 +436,8 @@ async def main() -> None:
                         help="Run only a specific model (e.g. gpt-4o, claude-3.5-sonnet)")
     parser.add_argument("--output-dir", type=str, default="eval/results/output",
                         help="Output directory for results")
+    parser.add_argument("--classifier", action="store_true",
+                        help="Use fine-tuned DistilBERT classifiers (Stage 1 + Stage 3)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -451,7 +461,10 @@ async def main() -> None:
     ))
 
     if args.framework_only or not args.full:
-        await run_framework_evaluation(attack_scenarios, benign_scenarios, output_dir)
+        await run_framework_evaluation(
+            attack_scenarios, benign_scenarios, output_dir,
+            use_classifier=args.classifier,
+        )
     else:
         await run_full_evaluation(
             attack_scenarios, output_dir,

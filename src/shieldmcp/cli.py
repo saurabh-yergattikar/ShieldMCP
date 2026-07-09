@@ -77,6 +77,15 @@ def main() -> None:
     registry_parser.add_argument("--config", "-c", default="shieldmcp.yaml")
     registry_parser.add_argument("--server-id", default=None)
 
+    # --- demo command (web UI) ---
+    demo_parser = subparsers.add_parser("demo", help="Launch the interactive web demo")
+    demo_parser.add_argument("--host", default="127.0.0.1", help="Listen host")
+    demo_parser.add_argument("--port", type=int, default=8000, help="Listen port")
+    demo_parser.add_argument(
+        "--config", "-c", default=None,
+        help="Optional config file (defaults to built-in config)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "proxy":
@@ -117,6 +126,12 @@ def main() -> None:
 
     elif args.command == "registry":
         asyncio.run(_run_registry(args))
+
+    elif args.command == "demo":
+        from .demo.server import run as run_demo
+
+        config = ShieldMCPConfig.from_yaml(args.config) if args.config else None
+        run_demo(host=args.host, port=args.port, config=config)
 
     else:
         parser.print_help()

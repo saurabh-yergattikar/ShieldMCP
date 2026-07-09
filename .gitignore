@@ -21,3 +21,4 @@ models/stage3_token_classifier/
 *.bin
 *.pt
 *.pth
+A1b_SAFEMCP_contributors.pdf
