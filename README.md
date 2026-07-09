@@ -58,6 +58,22 @@ This demonstration accompanies the EMNLP 2026 System Demonstration paper
 *"ShieldMCP: An Interactive System for Runtime Security of Model Context Protocol
 Tool Calls"* (`paper/`).
 
+### Live proxy demo (server-side, real MCP wire protocol)
+
+Prove it's a real transparent proxy, not a mock-up: a real MCP client sends framed
+JSON-RPC through `shieldmcp proxy`, which spawns real MCP servers as subprocesses
+and intercepts `tools/list`, `tools/call`, and responses live.
+
+```bash
+python examples/live_proxy_demo.py            # benign + two attack servers
+python examples/live_proxy_demo.py --attack   # attack servers only
+```
+
+You'll see a benign server pass through, a poisoned server have its malicious tools
+stripped, and an injection server have its response blocked at Stage 3 — with no
+changes to the agent or server. This is the same path deployed via
+`shieldmcp proxy -- python your_mcp_server.py`.
+
 ### Reproduce the benchmark
 
 ```bash

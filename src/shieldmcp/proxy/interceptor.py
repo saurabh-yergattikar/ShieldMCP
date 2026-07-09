@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import sys
+import uuid
 from typing import Any
 
 from ..core.config import ShieldMCPConfig
@@ -41,7 +42,9 @@ class StdioProxy:
         self.server_id = server_id
         self.pipeline = ShieldPipeline(config)
         self._server_process: asyncio.subprocess.Process | None = None
-        self._session_id: str | None = None
+        # Stable per-connection session so cross-call correlation and response
+        # tool-name resolution work across the whole client session.
+        self._session_id: str = str(uuid.uuid4())
 
     async def start(self) -> None:
         """Start the proxy: initialize pipeline and spawn the real MCP server."""

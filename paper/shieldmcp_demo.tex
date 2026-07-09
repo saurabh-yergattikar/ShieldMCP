@@ -222,6 +222,18 @@ edge cases and see the system respond in real time.
 The interface is theme-aware (light/dark), responsive, and requires no external
 network access, so it runs fully offline on a laptop at a poster session.
 
+\paragraph{Live proxy mode.}
+To show that \shield{} is a genuine transport-level proxy rather than a
+visualization, the demonstration also ships a terminal mode
+(\texttt{examples/live\_proxy\_demo.py}) in which a real MCP client sends framed
+JSON-RPC through \texttt{shieldmcp proxy}, which spawns one of the benchmark's real
+MCP servers as a subprocess. The audience sees, on the actual wire protocol, a
+benign server pass through, a poisoned server have its malicious tools stripped from
+the \texttt{tools/list} the client receives, and an injection server have its
+response blocked at Stage~3---each in a few milliseconds, with no modification to
+client or server. This is the same code path an operator deploys with
+\texttt{shieldmcp proxy -{}- <server>}.
+
 \section{Evaluation}
 \label{sec:eval}
 
