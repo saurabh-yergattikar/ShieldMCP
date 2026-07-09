@@ -25,13 +25,13 @@
 \maketitle
 
 \begin{abstract}
-The Model Context Protocol (MCP) has become the dominant standard for connecting
-large language models to external tools, but it exposes a new attack surface: an
-adversary can compromise an agent not through the user prompt, but through the
-\emph{tools} the agent trusts---poisoning tool descriptions, injecting hidden
-instructions into tool responses, or distributing malicious servers. We present
-\shield{}, an interactive, deployment-ready system that secures the MCP tool layer
-at runtime. \shield{} operates as a transparent proxy between the LLM client and
+The Model Context Protocol (MCP) lets large language model agents call external
+tools, and that tool channel has become a security liability: poisoned tool
+metadata, injected instructions in tool responses, and malicious servers can
+subvert an agent while never touching the user's prompt. These risks are
+increasingly well documented, but hard to \emph{experience}---most defenses exist as
+prose or prototypes. We present \shield{}, an interactive, deployment-ready system
+that makes both the attack and the runtime defense tangible in a browser. \shield{} operates as a transparent proxy between the LLM client and
 any MCP server, performing three-stage validation---\emph{pre-call} description
 integrity, \emph{outbound} parameter sanitization, and \emph{post-response}
 analysis---without modifying either the agent or the server. The demonstration
@@ -49,67 +49,57 @@ license and installable with a single \texttt{pip} command.
 
 \section{Introduction}
 
-Agents built on large language models (LLMs) increasingly act on the world by
-calling external tools: reading files, querying databases, searching the web, and
-executing code. The Model Context Protocol \citep[MCP;][]{mcp2025}, now governed by
-the Linux Foundation and adopted by Anthropic, OpenAI, and Google, has become the
-predominant standard for this tool-calling capability, with over 16{,}000 publicly
-available MCP servers as of early 2026.
+The security of the Model Context Protocol \citep[MCP;][]{mcp2025} tool layer is,
+today, mostly discussed on paper. A growing literature catalogues how tool
+descriptions can be poisoned \citep{wang2025mcptox}, how tool responses carry
+indirect prompt injections \citep{greshake2023,an2025ipiguard}, and how malicious
+servers slip through registries \citep{song2025beyond,zhao2025mcpservers}. Yet a
+practitioner deciding whether these risks are real for \emph{their} deployment, or
+whether a proposed defense actually blocks them, has little they can run: most
+defenses are described in prose or shipped as research prototypes, not as something
+an engineer installs in front of a live agent and watches work.
 
-This convenience introduces an attack surface that existing LLM safety measures do
-not cover. Traditional guardrails inspect the \emph{user-facing} channel---prompts
-in and completions out. MCP-enabled agents face a qualitatively different risk: the
-adversary need not interact with the user at all, and can instead compromise the
-\emph{tool layer} the agent implicitly trusts. Poisoned tool descriptions steer an
-agent's planning \citep{wang2025mcptox}; hidden instructions embedded in tool
-\emph{responses} hijack subsequent actions \citep{greshake2023,an2025ipiguard}; and
-malicious servers reach public registries with minimal vetting
-\citep{song2025beyond,zhao2025mcpservers}. These are not hypothetical:
-CVE-2025-6514 compromised over 437{,}000 developer environments through a malicious
-MCP package, and empirical studies report tool-poisoning success rates of 61--73\%
-against production agents \citep{wang2025mcptox}.
+This demonstration closes that gap. \shield{} is a runtime security proxy for the
+MCP tool layer, packaged so that anyone can experience the threat and the defense
+in a browser within seconds of \texttt{pip install}. Visitors launch real attacks
+from five families against real MCP servers, watch the proxy inspect each tool call
+stage by stage, see the offending payload highlighted token by token as it is
+blocked, and then paste their own inputs into a playground that runs the same
+detector. The detection framework and threat taxonomy that \shield{} operationalizes
+are developed in a companion research paper; the contribution \emph{here} is a
+deployable, inspectable system that turns that analysis into something people can
+touch.
 
-A companion research paper introduces the threat taxonomy and defense framework
-that \shield{} implements. This paper describes the \emph{system and its interactive
-demonstration}: a working, open-source, installable proxy that makes MCP tool-layer
-attacks---and their runtime mitigation---visible and reproducible. Our
-contributions as a demonstration are: (i)~a transparent, drop-in MCP security proxy
-that requires no changes to the agent or server and supports both stdio and SSE
-transports; (ii)~a browser-based interface that executes the real detection
-pipeline live, animating each of the three validation stages and highlighting the
-exact tokens that trigger a block; and (iii)~an interactive playground and
-reproducible benchmark harness (487 attacks, 200 benign tasks, 40 servers) that
-lets visitors probe the system with their own inputs.
+Concretely, the demonstration contributes: (i)~a transparent, drop-in MCP security
+proxy that needs no changes to the agent or server and speaks both the stdio and
+SSE transports, so it wraps existing deployments with a single command; (ii)~a
+browser interface that executes the \emph{real} three-stage pipeline live---every
+verdict is computed on the spot, and each validation stage is animated with in-place
+highlighting of the tokens that triggered it; and (iii)~an interactive playground
+plus a one-command reproducible benchmark (487 attacks, 200 benign tasks, 40
+servers) that lets an audience stress-test the detector and re-run every number in
+this paper.
 
-\section{The Problem and Target Audience}
+\section{Scope and Audience}
 
-\paragraph{What problem does the system address?}
-\shield{} defends the MCP tool layer against five attack families that production
-deployments must confront: \emph{tool poisoning} via metadata manipulation,
-\emph{indirect prompt injection} (IPI) through tool responses, \emph{supply-chain}
-compromise of MCP servers, \emph{rug pulls} in which a trusted tool silently
-mutates its behavior, and \emph{cross-tool exploitation chains} that compose benign
-calls into an exfiltration pipeline. Each of these bypasses input/output guardrails
-because the malicious content rides on the tool channel, which those guardrails do
-not inspect.
+The demonstration covers five attack families---tool poisoning, indirect prompt
+injection through responses, supply-chain compromise, rug pulls, and cross-tool
+chains---each represented by a runnable scenario in the interface. We do not
+re-derive the taxonomy here (it is the subject of the companion paper); rather, each
+family is present so that a visitor can trigger it and observe the corresponding
+defense. What unifies them, and what makes the live demonstration instructive, is
+that all five ride on the \emph{tool channel} rather than the user prompt, so they
+are invisible to conventional input/output guardrails---a point that is far more
+convincing to watch than to read.
 
-\paragraph{Why is it important?}
-As MCP adoption accelerates under Linux Foundation stewardship, the tool layer is
-becoming critical infrastructure for agentic AI, yet the ecosystem lacks
-standardized vetting: \citet{zhao2025mcpservers} find that 27.2\% of analyzed
-servers expose exploitable tools. In regulated sectors, an unmonitored tool layer
-is a direct compliance risk, since multi-stage inference attacks can exfiltrate
-confidential data even when standard safety measures are in place. A
-\emph{deployable}, \emph{modification-free} runtime defense is therefore of
-immediate practical value.
-
-\paragraph{Who is the target audience?}
-The primary audience is engineers and security teams integrating MCP into
-production agents, who can deploy \shield{} as a proxy in front of untrusted
-servers. The demonstration also targets NLP researchers studying agent security,
-who can use the open benchmark and playground to reproduce attacks and evaluate new
-detectors, and educators, who can use the live interface to teach tool-layer threat
-models concretely.
+The demonstration is built for three audiences. \textbf{Engineers} evaluating MCP
+security can install \shield{} and see, on their own machine, whether a given tool
+or server trips the detector before trusting it in production. \textbf{Researchers}
+in agent security get an open, one-command benchmark and a playground for probing
+and comparing detectors. \textbf{Educators and practitioners} get a concrete,
+interactive way to teach why the tool layer is a distinct attack surface---the demo
+was designed to run fully offline on a laptop at a poster session, with no API keys
+and no network.
 
 \section{System Architecture}
 \label{sec:arch}
@@ -147,11 +137,11 @@ and an SSE proxy mode covers HTTP-based servers. The pipeline performs three sta
 
 \paragraph{Stage 1: Description integrity (pre-call).}
 Before the agent's planning phase, \shield{} inspects every registered tool
-description with two checks. A \emph{structural} analyzer parses descriptions for
-hidden Unicode (zero-width joiners, right-to-left overrides), HTML/markdown
-injection, and instruction-like patterns embedded in metadata fields, catching the
-``invisible prompt'' class. A \emph{semantic} check then scores whether the
-description contains embedded action directives. \shield{} also maintains a baseline
+description with two checks. A \emph{structural} analyzer flags description text
+that no legitimate tool needs: hidden Unicode (zero-width joiners, right-to-left
+overrides), markup-based concealment, and imperative patterns buried in metadata
+fields. A \emph{semantic} check then scores how strongly the description reads as a
+covert instruction to the agent rather than a neutral capability description. \shield{} also maintains a baseline
 registry of vetted tool signatures (name, description hash, parameter schema) and
 raises a high-severity alert when a previously seen tool changes---the rug-pull
 detector---requiring explicit re-authorization.
@@ -343,30 +333,30 @@ a first-class concern as MCP adoption grows.
 
 \section*{Ethical Considerations}
 
-This work studies and demonstrates security vulnerabilities in AI systems. All attack
-evaluations were conducted against locally deployed models and servers in controlled
-environments; no production systems or real users were targeted. The adversarial MCP
-servers we construct are for evaluation and are not novel zero-day disclosures---our
-threat taxonomy is derived from publicly available security research and the
-open-source SAFE-MCP project. We believe documenting these threats and providing
-defenses serves the public interest, since organizations cannot protect against risks
-they do not understand. The demonstration exposes only benign and clearly-labeled
-adversarial scenarios and does not facilitate the construction of new attacks beyond
-what is already public. We follow the ACM Code of Ethics.
+A public demonstration of an attack tool warrants care. The scenarios shipped with
+\shield{} are illustrative reconstructions of already-public attack classes; they run
+only against the bundled local mock servers, contain no working exploit against any
+real service, and disclose no new vulnerability. The playground lets a visitor test
+inputs, but it \emph{evaluates} text for maliciousness rather than generating attacks,
+so it does not lower the bar for an adversary. We judged that a hands-on defender's
+tool does more good than harm here: the attacks it visualizes are documented in the
+cited literature, and letting practitioners see their own tools screened is precisely
+how tool-layer risk becomes actionable. The system is a defensive artifact and we
+release it in that spirit, consistent with the ACM Code of Ethics.
 
 \section*{Limitations}
 
-\shield{} has several limitations. The semantic and token classifiers are trained on
-English-language tool descriptions and synthetic data; multilingual and
-naturally-occurring adversarial servers would require additional training data, and
-the near-zero classifier ASR on our benchmark should be read with the caveat noted in
-Section~\ref{sec:eval} regarding synthetic-data overlap. The cross-call correlation
-module scales quadratically with the number of tool calls in a session, which can
-become a bottleneck in long-running interactions. Determined adversaries with
-knowledge of the defense can craft adaptive attacks; static detection is a component
-of, not a substitute for, defense-in-depth. Latency measurements were obtained on a
-single hardware configuration and will vary across deployments. Finally, our expert
-review involved three engineers, a sample that limits statistical power.
+As a demonstration, \shield{} inherits the boundaries of its detectors. The most
+important caveat concerns the classifier backend: because its training data and the
+benchmark scenarios are both synthetic, the near-perfect detection it shows on this
+benchmark should be read as an upper bound, not a field number---which is exactly why
+we headline the heuristic backend's 8.6\% instead (Section~\ref{sec:eval}). The
+classifiers are also English-only. Two further limits are structural rather than
+tuning issues: the cross-call correlation graph grows quadratically with session
+length, and a determined adversary who studies the detector can craft adaptive
+evasions---so \shield{} is one layer of a defense-in-depth posture, not a complete
+solution. Reported latencies are from a single machine and the benchmark, while
+diverse, cannot enumerate every real MCP attack.
 
 \bibliography{shieldmcp}
 \bibliographystyle{acl_natbib}
