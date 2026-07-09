@@ -29,12 +29,12 @@ The Model Context Protocol (MCP) lets large language model agents call external
 tools, and that tool channel has become a security liability: poisoned tool
 metadata, injected instructions in tool responses, and malicious servers can
 subvert an agent while never touching the user's prompt. These risks are
-increasingly well documented, but hard to \emph{experience}---most defenses exist as
+increasingly well documented, but hard to \emph{experience}: most defenses exist as
 prose or prototypes. We present \shield{}, an interactive, deployment-ready system
 that makes both the attack and the runtime defense tangible in a browser. \shield{} operates as a transparent proxy between the LLM client and
-any MCP server, performing three-stage validation---\emph{pre-call} description
+any MCP server, performing three-stage validation: \emph{pre-call} description
 integrity, \emph{outbound} parameter sanitization, and \emph{post-response}
-analysis---without modifying either the agent or the server. The demonstration
+analysis, all without modifying either the agent or the server. The demonstration
 exposes the full pipeline through a browser interface in which visitors launch
 curated attacks from five threat families, watch each validation stage execute
 live with per-token highlighting of the detected payload, and submit their own
@@ -73,8 +73,8 @@ touch.
 Concretely, the demonstration contributes: (i)~a transparent, drop-in MCP security
 proxy that needs no changes to the agent or server and speaks both the stdio and
 SSE transports, so it wraps existing deployments with a single command; (ii)~a
-browser interface that executes the \emph{real} three-stage pipeline live---every
-verdict is computed on the spot, and each validation stage is animated with in-place
+browser interface that executes the \emph{real} three-stage pipeline live, so that
+every verdict is computed on the spot and each validation stage is animated with in-place
 highlighting of the tokens that triggered it; and (iii)~an interactive playground
 plus a one-command reproducible benchmark (487 attacks, 200 benign tasks, 40
 servers) that lets an audience stress-test the detector and re-run every number in
@@ -82,14 +82,14 @@ this paper.
 
 \section{Scope and Audience}
 
-The demonstration covers five attack families---tool poisoning, indirect prompt
+The demonstration covers five attack families (tool poisoning, indirect prompt
 injection through responses, supply-chain compromise, rug pulls, and cross-tool
-chains---each represented by a runnable scenario in the interface. We do not
+chains), each represented by a runnable scenario in the interface. We do not
 re-derive the taxonomy here (it is the subject of the companion paper); rather, each
 family is present so that a visitor can trigger it and observe the corresponding
 defense. What unifies them, and what makes the live demonstration instructive, is
 that all five ride on the \emph{tool channel} rather than the user prompt, so they
-are invisible to conventional input/output guardrails---a point that is far more
+are invisible to conventional input/output guardrails, a point that is far more
 convincing to watch than to read.
 
 The demonstration is built for three audiences. \textbf{Engineers} evaluating MCP
@@ -97,7 +97,7 @@ security can install \shield{} and see, on their own machine, whether a given to
 or server trips the detector before trusting it in production. \textbf{Researchers}
 in agent security get an open, one-command benchmark and a playground for probing
 and comparing detectors. \textbf{Educators and practitioners} get a concrete,
-interactive way to teach why the tool layer is a distinct attack surface---the demo
+interactive way to teach why the tool layer is a distinct attack surface. The demo
 was designed to run fully offline on a laptop at a poster session, with no API keys
 and no network.
 
@@ -143,8 +143,8 @@ overrides), markup-based concealment, and imperative patterns buried in metadata
 fields. A \emph{semantic} check then scores how strongly the description reads as a
 covert instruction to the agent rather than a neutral capability description. \shield{} also maintains a baseline
 registry of vetted tool signatures (name, description hash, parameter schema) and
-raises a high-severity alert when a previously seen tool changes---the rug-pull
-detector---requiring explicit re-authorization.
+raises a high-severity alert when a previously seen tool changes (the rug-pull
+detector), requiring explicit re-authorization.
 
 \paragraph{Stage 2: Parameter sanitization (outbound).}
 When the agent constructs a call, \shield{} validates the outbound parameters
@@ -159,7 +159,7 @@ most consequential stage. \shield{} performs (i)~\emph{instruction detection},
 identifying segments of the response that contain directive language using either
 pattern rules or a token-level classifier; (ii)~\emph{context-boundary
 enforcement}, wrapping responses in explicit delimiters that the agent is
-conditioned to treat as untrusted data---a lightweight, prompt-engineering
+conditioned to treat as untrusted data, a lightweight, prompt-engineering
 approximation of the control/data separation advocated by
 \citet{debenedetti2025camel}; and (iii)~\emph{cross-call correlation}, maintaining a
 session-level dependency graph so that a response which triggers an unexpected
@@ -169,8 +169,8 @@ follow-on tool call raises a high-severity chaining alert.
 Stages~1 and~3 each expose a backend switch. The default \texttt{heuristic} backend
 is dependency-light and requires no training or GPU, making it the conservative
 operating point for deployment. An optional \texttt{classifier} backend loads
-fine-tuned DistilBERT models---a binary sequence classifier for descriptions and a
-token classifier for responses---for higher recall. Backends are selected in a YAML
+fine-tuned DistilBERT models (a binary sequence classifier for descriptions and a
+token classifier for responses) for higher recall. Backends are selected in a YAML
 config or at the command line, so operators trade recall against footprint without
 code changes.
 
@@ -192,7 +192,7 @@ rate.}
 
 The demonstration is a single-page web application, served by the same Python
 package as the proxy and launched with \texttt{shieldmcp demo}. Every verdict shown
-in the browser is computed live by the real pipeline---nothing is mocked or
+in the browser is computed live by the real pipeline; nothing is mocked or
 pre-recorded. The interface (Figure~\ref{fig:ipi}) has three regions.
 
 \paragraph{Attack gallery.}
@@ -200,15 +200,15 @@ A left panel lists curated scenarios spanning all five threat families plus a
 benign control. Selecting one streams the corresponding MCP traffic through the
 proxy and animates the three stage cards in sequence: each card transitions from
 \emph{scanning} to a \emph{pass}/\emph{warn}/\emph{block} verdict, reports its
-measured latency and alert count, and---critically for pedagogy---renders the
+measured latency and alert count, and, critically for pedagogy, renders the
 offending tool description, parameter, or response with the exact substrings that
 triggered detection highlighted in place. When a stage blocks, the pipeline halts
 there (mirroring production behavior), and a verdict banner summarizes the
 end-to-end outcome and latency.
 
 \paragraph{Live benchmark.}
-A right panel surfaces the aggregate evaluation---overall attack success rate,
-benign pass rate, and a per-family attack-success bar chart---read directly from the
+A right panel surfaces the aggregate evaluation (overall attack success rate,
+benign pass rate, and a per-family attack-success bar chart) read directly from the
 benchmark result file, so the numbers a visitor sees on screen are the same numbers
 reported in Section~\ref{sec:eval}.
 
@@ -230,7 +230,7 @@ JSON-RPC through \texttt{shieldmcp proxy}, which spawns one of the benchmark's r
 MCP servers as a subprocess. The audience sees, on the actual wire protocol, a
 benign server pass through, a poisoned server have its malicious tools stripped from
 the \texttt{tools/list} the client receives, and an injection server have its
-response blocked at Stage~3---each in a few milliseconds, with no modification to
+response blocked at Stage~3, each in a few milliseconds, with no modification to
 client or server. This is the same code path an operator deploys with
 \texttt{shieldmcp proxy -{}- <server>}.
 
@@ -262,10 +262,10 @@ across five LLM backends in the companion study.}
 
 We evaluate \shield{} along three dimensions: attack-detection effectiveness,
 benign-task impact, and runtime latency. The benchmark harness comprises 40 MCP
-servers---25 benign servers drawn from popular open-source implementations
+servers: 25 benign servers drawn from popular open-source implementations
 (filesystem, database, web-search, code-execution, calendar) and 15 adversarial
-servers implementing the five threat families---with 487 attack scenarios and 200
-benign task scenarios. The harness ships with the system and is reproducible with
+servers implementing the five threat families, together exercising 487 attack
+scenarios and 200 benign task scenarios. The harness ships with the system and is reproducible with
 \texttt{python eval/run\_evaluation.py -\/-framework-only}.
 
 \paragraph{Detection effectiveness.}
@@ -309,14 +309,14 @@ language. \shield{} ships the review tool used for this study.
 
 Guardrail systems such as LlamaFirewall \citep{chennabasappa2025llamafirewall} and
 NeMo Guardrails filter user inputs and model outputs but do not inspect the tool
-layer---the descriptions agents read, the parameters they construct, or the
+layer: the descriptions agents read, the parameters they construct, or the
 responses they ingest. Architectural approaches such as CaMeL
 \citep{debenedetti2025camel} offer strong control/data-flow guarantees but require
 substantial modifications to the agent pipeline that many production systems cannot
 accommodate. Training-time defenses (StruQ, SecAlign) harden a specific model but do
-not protect a heterogeneous fleet of servers. Recent MCP-specific tools---MCP-Guard
-\citep{xing2025mcpguard}, IPIGuard \citep{an2025ipiguard}, and DRIFT---advance
-detection but are research prototypes rather than deployable, transport-level
+not protect a heterogeneous fleet of servers. Recent MCP-specific tools such as
+MCP-Guard \citep{xing2025mcpguard}, IPIGuard \citep{an2025ipiguard}, and DRIFT
+advance detection but are research prototypes rather than deployable, transport-level
 proxies. \shield{} is distinguished by being simultaneously (i)~modification-free
 and drop-in at the MCP transport, (ii)~covering all three interception points in one
 pass, and (iii)~shipped as an installable package with an interactive interface and
@@ -361,12 +361,12 @@ release it in that spirit, consistent with the ACM Code of Ethics.
 As a demonstration, \shield{} inherits the boundaries of its detectors. The most
 important caveat concerns the classifier backend: because its training data and the
 benchmark scenarios are both synthetic, the near-perfect detection it shows on this
-benchmark should be read as an upper bound, not a field number---which is exactly why
+benchmark should be read as an upper bound, not a field number, which is exactly why
 we headline the heuristic backend's 8.6\% instead (Section~\ref{sec:eval}). The
 classifiers are also English-only. Two further limits are structural rather than
 tuning issues: the cross-call correlation graph grows quadratically with session
 length, and a determined adversary who studies the detector can craft adaptive
-evasions---so \shield{} is one layer of a defense-in-depth posture, not a complete
+evasions, so \shield{} is one layer of a defense-in-depth posture, not a complete
 solution. Reported latencies are from a single machine and the benchmark, while
 diverse, cannot enumerate every real MCP attack.
 
