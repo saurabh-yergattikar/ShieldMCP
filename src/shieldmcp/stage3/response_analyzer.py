@@ -9,6 +9,7 @@ Analyzes inbound MCP tool responses for:
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 import uuid
@@ -26,6 +27,10 @@ from ..core.models import (
     ToolResponse,
     ValidationResult,
 )
+
+logger = logging.getLogger(__name__)
+
+_token_classifier = None
 
 # --- Instruction detection patterns ---
 INSTRUCTIONAL_PATTERNS = [
@@ -99,7 +104,10 @@ async def analyze_response(
 
     # 1. Instruction token detection
     if config.stage3.instruction_detection_enabled:
-        instruction_alerts = _detect_instructions(content_str, response)
+        if config.stage3.instruction_detection_backend == "classifier":
+            instruction_alerts = await _detect_instructions_classifier(content_str, response)
+        else:
+            instruction_alerts = _detect_instructions(content_str, response)
         alerts.extend(instruction_alerts)
 
     # 2. Hidden content detection
@@ -180,6 +188,86 @@ def _detect_instructions(text: str, response: ToolResponse) -> list[SecurityAler
                 server_id=response.server_id,
             )
         )
+
+    return alerts
+
+
+def _get_token_classifier() -> Any:
+    """Lazy-load the token classifier singleton."""
+    global _token_classifier
+    if _token_classifier is not None:
+        return _token_classifier
+
+    try:
+        from ..classifiers.token_classifier import InstructionTokenClassifier
+        _token_classifier = InstructionTokenClassifier()
+        if not _token_classifier.available:
+            logger.warning("Token classifier loaded but unavailable (missing deps), falling back to heuristic")
+            _token_classifier = None
+    except Exception:
+        logger.exception("Failed to load token classifier, falling back to heuristic")
+        _token_classifier = None
+
+    return _token_classifier
+
+
+async def _detect_instructions_classifier(
+    text: str, response: ToolResponse
+) -> list[SecurityAlert]:
+    """Detect instructional content using the token-level classifier."""
+    classifier = _get_token_classifier()
+
+    if classifier is None:
+        logger.debug("Classifier unavailable, using heuristic fallback")
+        return _detect_instructions(text, response)
+
+    result = classifier.predict(text)
+    alerts: list[SecurityAlert] = []
+
+    score = result["score"]
+    ratio = result["instructional_ratio"]
+    spans = result["instructional_spans"]
+
+    if score < 0.15 and ratio < 0.05:
+        return alerts
+
+    if ratio >= 0.25 or score >= 0.7:
+        severity = Severity.CRITICAL
+    elif ratio >= 0.1 or score >= 0.4:
+        severity = Severity.HIGH
+    else:
+        severity = Severity.MEDIUM
+
+    action = Action.BLOCK if severity in (Severity.CRITICAL, Severity.HIGH) else Action.WARN
+
+    span_summaries = [
+        {"text": s["text"][:120], "confidence": s["confidence"]}
+        for s in spans[:10]
+    ]
+
+    alerts.append(
+        SecurityAlert(
+            alert_id=str(uuid.uuid4()),
+            stage=CheckStage.POST_RESPONSE,
+            severity=severity,
+            attack_family=AttackFamily.INDIRECT_PROMPT_INJECTION,
+            action=action,
+            message=(
+                f"Token classifier detected instructional content in response from "
+                f"tool '{response.tool_name}' (score={score:.2f}, ratio={ratio:.2f}, "
+                f"{len(spans)} span(s))"
+            ),
+            details={
+                "classifier_score": score,
+                "instructional_ratio": ratio,
+                "instructional_spans": span_summaries,
+                "span_count": len(spans),
+                "backend": "classifier",
+            },
+            tool_name=response.tool_name,
+            server_id=response.server_id,
+        )
+    )
 
     return alerts
 

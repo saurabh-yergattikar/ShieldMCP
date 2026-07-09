@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from dataclasses import asdict
@@ -38,10 +39,11 @@ from rich.panel import Panel
 from rich.table import Table
 
 from shieldmcp.core.config import ShieldMCPConfig
-from shieldmcp.core.models import Action
+from shieldmcp.core.models import Action, AttackFamily
 from shieldmcp.core.pipeline import ShieldPipeline
 
-from scenarios.attack_scenarios import get_all_attack_scenarios, AttackScenario
+from harness.runner import EvalRunner, EvalScenario, LLMBackendConfig
+from scenarios.attack_scenarios import get_all_attack_scenarios, AttackScenario as AttackScenarioDC
 from scenarios.benign_scenarios import get_all_benign_scenarios, BenignScenario
 
 console = Console()
@@ -262,6 +264,156 @@ def _print_benign_results(total: int, passed: int, warned: int, blocked: int) ->
     console.print(table)
 
 
+MODEL_CONFIGS: list[dict[str, str]] = [
+    {"name": "gpt-4o", "provider": "openai", "model": "gpt-4o", "key_env": "OPENAI_API_KEY"},
+    {"name": "gpt-4o-mini", "provider": "openai", "model": "gpt-4o-mini", "key_env": "OPENAI_API_KEY"},
+    {"name": "claude-3.5-sonnet", "provider": "anthropic", "model": "claude-3-5-sonnet-20241022", "key_env": "ANTHROPIC_API_KEY"},
+    {"name": "llama-3.1-70b", "provider": "openai", "model": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", "key_env": "TOGETHER_API_KEY"},
+    {"name": "qwen2.5-72b", "provider": "openai", "model": "Qwen/Qwen2.5-72B-Instruct-Turbo", "key_env": "TOGETHER_API_KEY"},
+]
+
+TOGETHER_BASE_URL = "https://api.together.xyz/v1"
+
+_FAMILY_MAP: dict[str, AttackFamily] = {
+    "tool_poisoning": AttackFamily.TOOL_POISONING,
+    "indirect_prompt_injection": AttackFamily.INDIRECT_PROMPT_INJECTION,
+    "supply_chain": AttackFamily.SUPPLY_CHAIN,
+    "rug_pull": AttackFamily.RUG_PULL,
+    "cross_tool_chain": AttackFamily.CROSS_TOOL_CHAIN,
+}
+
+
+def _attack_to_eval(scenario: AttackScenarioDC) -> EvalScenario:
+    tool_desc = ""
+    tool_params: dict = {}
+    if scenario.tool_definitions:
+        first = scenario.tool_definitions[0]
+        tool_desc = first.get("description", "")
+        tool_params = first.get("inputSchema", first.get("parameters", {}))
+
+    return EvalScenario(
+        scenario_id=scenario.scenario_id,
+        attack_family=_FAMILY_MAP.get(scenario.attack_family, AttackFamily.TOOL_POISONING),
+        server_id=scenario.server_id,
+        tool_name=scenario.tool_name,
+        user_task=scenario.user_task,
+        expected_behavior=scenario.expected_safe_behavior,
+        attack_behavior=scenario.attack_behavior,
+        success_criteria=scenario.attack_behavior,
+        tool_description=tool_desc,
+        tool_parameters=tool_params,
+        tool_response=scenario.tool_response,
+    )
+
+
+def _print_full_eval_results(results: list) -> None:
+    asr_table: dict[str, dict[str, list[bool]]] = {}
+    for r in results:
+        family = r.get("scenario_id", "")[:2]
+        family_map = {
+            "TP": "tool_poisoning", "IP": "indirect_prompt_injection",
+            "SC": "supply_chain", "RP": "rug_pull", "CT": "cross_tool_chain",
+        }
+        family_name = family_map.get(family, "unknown")
+        mode = r.get("defense_mode", "unknown") if isinstance(r, dict) else r.defense_mode
+        succeeded = r.get("attack_succeeded", False) if isinstance(r, dict) else r.attack_succeeded
+
+        asr_table.setdefault(family_name, {}).setdefault(mode, []).append(succeeded)
+
+    table = Table(title="Attack Success Rate by Family and Defense Mode")
+    table.add_column("Attack Family", style="bold")
+
+    all_modes = sorted({m for fam in asr_table.values() for m in fam})
+    for mode in all_modes:
+        table.add_column(mode, justify="right")
+
+    for family in sorted(asr_table):
+        row = [family]
+        for mode in all_modes:
+            outcomes = asr_table[family].get(mode, [])
+            if outcomes:
+                asr = sum(outcomes) / len(outcomes) * 100
+                color = "green" if asr < 15 else ("yellow" if asr < 30 else "red")
+                row.append(f"[{color}]{asr:.1f}%[/{color}]")
+            else:
+                row.append("-")
+        table.add_row(*row)
+
+    console.print(table)
+
+
+async def run_full_evaluation(
+    attack_scenarios: list[AttackScenarioDC],
+    output_dir: Path,
+    model_filter: str | None = None,
+    quick: bool = False,
+) -> None:
+    configs_to_run = MODEL_CONFIGS
+    if model_filter:
+        configs_to_run = [c for c in MODEL_CONFIGS if c["name"] == model_filter]
+        if not configs_to_run:
+            console.print(f"[red]Unknown model '{model_filter}'. Available: {[c['name'] for c in MODEL_CONFIGS]}[/red]")
+            return
+
+    missing_keys: list[str] = []
+    needed_envs = {c["key_env"] for c in configs_to_run}
+    for env_var in needed_envs:
+        if not os.environ.get(env_var):
+            missing_keys.append(env_var)
+    if missing_keys:
+        console.print(f"[yellow]Warning: missing API keys: {', '.join(missing_keys)}[/yellow]")
+        console.print("[yellow]Models requiring missing keys will be skipped.[/yellow]")
+
+    eval_scenarios = [_attack_to_eval(s) for s in attack_scenarios]
+    repetitions = 1 if quick else 3
+    modes = ["none", "regex", "llm_judge", "shieldmcp"]
+
+    all_results: list[dict] = []
+
+    for mc in configs_to_run:
+        api_key = os.environ.get(mc["key_env"], "")
+        if not api_key:
+            console.print(f"[dim]Skipping {mc['name']} (no {mc['key_env']})[/dim]")
+            continue
+
+        console.print(f"\n[bold]Running evaluation with {mc['name']}...[/bold]")
+
+        llm_config = LLMBackendConfig(
+            provider=mc["provider"],
+            model=mc["model"],
+            api_key=api_key,
+        )
+
+        if mc["key_env"] == "TOGETHER_API_KEY":
+            import openai as _openai_mod
+            _orig_base = getattr(_openai_mod, "_base_url", None)
+
+        shield_config = ShieldMCPConfig()
+        shield_config.registry_db_path = str(output_dir / f"eval_registry_{mc['name']}.db")
+
+        runner = EvalRunner(
+            config=shield_config,
+            scenarios=eval_scenarios,
+            llm_config=llm_config,
+        )
+
+        results = await runner.run_all(repetitions=repetitions, modes=modes)
+        runner.export_results(output_dir / f"full_eval_{mc['name']}.json")
+
+        serialized = [asdict(r) for r in results]
+        all_results.extend(serialized)
+
+        console.print(f"  [green]Completed {len(results)} evaluations for {mc['name']}[/green]")
+
+    output_file = output_dir / "full_eval_results.json"
+    with open(output_file, "w") as f:
+        json.dump(all_results, f, indent=2, default=str)
+    console.print(f"\n[dim]Full results saved to {output_file}[/dim]")
+
+    if all_results:
+        _print_full_eval_results(all_results)
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser(description="ShieldMCP Evaluation")
     parser.add_argument("--framework-only", action="store_true",
@@ -272,6 +424,8 @@ async def main() -> None:
                         help="Quick smoke test with subset of scenarios")
     parser.add_argument("--family", type=str, default=None,
                         help="Run only a specific attack family")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Run only a specific model (e.g. gpt-4o, claude-3.5-sonnet)")
     parser.add_argument("--output-dir", type=str, default="eval/results/output",
                         help="Output directory for results")
     args = parser.parse_args()
@@ -299,9 +453,10 @@ async def main() -> None:
     if args.framework_only or not args.full:
         await run_framework_evaluation(attack_scenarios, benign_scenarios, output_dir)
     else:
-        console.print("[yellow]Full LLM evaluation requires API keys. Set OPENAI_API_KEY and ANTHROPIC_API_KEY.[/yellow]")
-        console.print("[dim]Running framework-only evaluation instead...[/dim]")
-        await run_framework_evaluation(attack_scenarios, benign_scenarios, output_dir)
+        await run_full_evaluation(
+            attack_scenarios, output_dir,
+            model_filter=args.model, quick=args.quick,
+        )
 
 
 if __name__ == "__main__":

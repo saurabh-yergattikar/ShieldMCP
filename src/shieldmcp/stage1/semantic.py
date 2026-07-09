@@ -207,9 +207,73 @@ async def _llm_judge_check(tool: ToolSignature, config: Stage1Config) -> Validat
 
 
 async def _classifier_check(tool: ToolSignature, config: Stage1Config) -> ValidationResult:
-    """Placeholder for fine-tuned local classifier. Falls back to heuristic."""
-    # TODO: Implement fine-tuned DeBERTa/DistilBERT classifier
-    return _heuristic_check(tool, config.semantic_threshold)
+    """Use a fine-tuned DistilBERT classifier to score the tool description."""
+    try:
+        from ..classifiers.description_classifier import DescriptionClassifier
+    except ImportError:
+        return _heuristic_check(tool, config.semantic_threshold)
+
+    classifier = _get_cached_classifier()
+    if classifier is None:
+        return _heuristic_check(tool, config.semantic_threshold)
+
+    text = _get_full_text(tool)
+    score = classifier.predict(text)
+
+    alerts = []
+    if score >= config.semantic_threshold:
+        alerts.append(
+            SecurityAlert(
+                alert_id=str(uuid.uuid4()),
+                stage=CheckStage.PRE_CALL,
+                severity=Severity.HIGH if score >= 0.85 else Severity.MEDIUM,
+                attack_family=AttackFamily.TOOL_POISONING,
+                action=Action.QUARANTINE if score >= 0.85 else Action.WARN,
+                message=f"Classifier score {score:.2f} exceeds threshold {config.semantic_threshold} for tool '{tool.name}'",
+                details={
+                    "score": round(score, 4),
+                    "threshold": config.semantic_threshold,
+                    "backend": "classifier",
+                    "fine_tuned": classifier.is_fine_tuned,
+                },
+                tool_name=tool.name,
+                server_id=tool.server_id,
+            )
+        )
+
+    return ValidationResult(passed=score < config.semantic_threshold, alerts=alerts)
+
+
+_cached_classifier: Any = None
+
+
+def _get_cached_classifier() -> Any:
+    """Return a singleton DescriptionClassifier, or None if unavailable."""
+    global _cached_classifier
+    if _cached_classifier is not None:
+        return _cached_classifier
+
+    try:
+        from ..classifiers.description_classifier import DescriptionClassifier
+    except ImportError:
+        return None
+
+    import os
+    model_path = os.environ.get("SHIELDMCP_CLASSIFIER_MODEL")
+
+    # Auto-detect model at the conventional path
+    if model_path is None:
+        from pathlib import Path
+
+        default = Path("models/stage1_classifier")
+        if (default / "config.json").exists():
+            model_path = str(default)
+
+    try:
+        _cached_classifier = DescriptionClassifier(model_path=model_path)
+        return _cached_classifier
+    except Exception:
+        return None
 
 
 def _get_full_text(tool: ToolSignature) -> str:

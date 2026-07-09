@@ -13,3 +13,11 @@ build/
 .env
 .venv/
 venv/
+
+# Trained model weights (large; regenerate with training scripts)
+models/stage1_classifier/
+models/stage3_token_classifier/
+*.safetensors
+*.bin
+*.pt
+*.pth

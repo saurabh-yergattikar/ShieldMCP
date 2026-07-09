@@ -18,8 +18,8 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    # --- proxy command ---
-    proxy_parser = subparsers.add_parser("proxy", help="Run as transparent MCP proxy")
+    # --- proxy command (stdio) ---
+    proxy_parser = subparsers.add_parser("proxy", help="Run as transparent MCP proxy (stdio)")
     proxy_parser.add_argument(
         "server_command",
         nargs="+",
@@ -32,6 +32,33 @@ def main() -> None:
         "--server-id", default="default", help="Identifier for this MCP server"
     )
     proxy_parser.add_argument(
+        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
+    )
+    proxy_parser.add_argument(
+        "--transport",
+        default="stdio",
+        choices=["stdio", "sse"],
+        help="Transport type (default: stdio)",
+    )
+
+    # --- sse-proxy command ---
+    sse_parser = subparsers.add_parser("sse-proxy", help="Run as SSE transport proxy")
+    sse_parser.add_argument(
+        "--backend-url",
+        required=True,
+        help="URL of the real MCP server's SSE endpoint (e.g., http://localhost:3000)",
+    )
+    sse_parser.add_argument("--host", default=None, help="Listen host (default from config)")
+    sse_parser.add_argument(
+        "--port", type=int, default=None, help="Listen port (default from config)"
+    )
+    sse_parser.add_argument(
+        "--config", "-c", default="shieldmcp.yaml", help="Path to config file"
+    )
+    sse_parser.add_argument(
+        "--server-id", default="default", help="Identifier for this MCP server"
+    )
+    sse_parser.add_argument(
         "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
     )
 
@@ -55,9 +82,28 @@ def main() -> None:
     if args.command == "proxy":
         setup_logging(args.log_level)
         config = ShieldMCPConfig.from_yaml(args.config)
+
+        if getattr(args, "transport", "stdio") == "sse":
+            print("Error: use the 'sse-proxy' command for SSE transport", file=sys.stderr)
+            sys.exit(1)
+
         from .proxy.interceptor import StdioProxy
 
         proxy = StdioProxy(args.server_command, config, args.server_id)
+        asyncio.run(proxy.start())
+
+    elif args.command == "sse-proxy":
+        setup_logging(args.log_level)
+        config = ShieldMCPConfig.from_yaml(args.config)
+
+        if args.host:
+            config.proxy.host = args.host
+        if args.port:
+            config.proxy.port = args.port
+
+        from .proxy.sse_proxy import SSEProxy
+
+        proxy = SSEProxy(args.backend_url, config, args.server_id)
         asyncio.run(proxy.start())
 
     elif args.command == "scan":

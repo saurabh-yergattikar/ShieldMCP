@@ -5500,7 +5500,7 @@
     }
   ],
   "metadata": {
-    "timestamp": 1776972205.345133,
+    "timestamp": 1776998316.9519758,
     "num_attack_scenarios": 487,
     "num_benign_scenarios": 200,
     "defense_mode": "shieldmcp"
