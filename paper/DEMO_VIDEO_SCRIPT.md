@@ -12,10 +12,10 @@ switch only — easy to record.
 ## ✅ PRE-FLIGHT (run ONCE before recording — copy/paste the whole block)
 
 ```bash
-# 1. shortcuts
-alias shieldmcp="/Users/saurabh_yergattikar/Desktop/code_base/ShieldMCP/.venv/bin/shieldmcp"
-export SM="/Users/saurabh_yergattikar/Desktop/code_base/ShieldMCP"
-cd "$SM"
+# 1. go to the repo and ACTIVATE the venv — this makes `python` and `shieldmcp`
+#    resolve to the project's environment (the system python3 has no deps).
+cd /Users/saurabh_yergattikar/Desktop/code_base/ShieldMCP
+source .venv/bin/activate
 
 # 2. kill any old demo server
 pkill -f "shieldmcp.cli demo" 2>/dev/null; sleep 1
@@ -26,9 +26,14 @@ sleep 3
 curl -s -o /dev/null -w "web demo: %{http_code}\n" http://127.0.0.1:8000/   # want 200
 
 # 4. warm the live-proxy demo once so it's cached (output not recorded)
-.venv/bin/python examples/live_proxy_demo.py >/dev/null 2>&1
+python examples/live_proxy_demo.py >/dev/null 2>&1
 clear
 ```
+
+> After `source .venv/bin/activate`, your prompt shows `(.venv)` and both
+> `python ...` and `shieldmcp ...` work as plain commands for the whole session —
+> this is what makes the on-camera commands "just work."
+> (If you ever open a NEW terminal tab, re-run steps 1–2 first.)
 
 **Screen setup:**
 - **Terminal:** font ≥ 18pt, window ~110 columns, cleared. This is your START screen.
