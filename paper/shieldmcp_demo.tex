@@ -81,7 +81,11 @@ every verdict is computed on the spot and each validation stage is animated with
 highlighting of the tokens that triggered it; and (iii)~an interactive playground
 plus a one-command reproducible benchmark (487 attacks, 200 benign tasks, 40
 servers) that lets an audience stress-test the detector and re-run every number in
-this paper.
+this paper. The system targets the safety of tool-augmented language models, and in
+particular indirect prompt injection and tool poisoning, a threat surface that has
+become a rapidly growing area of interest at ACL and EMNLP; its detectors are
+themselves NLP models (a sequence classifier over tool descriptions and a
+token-level classifier over tool responses).
 
 \section{Scope and Audience}
 
