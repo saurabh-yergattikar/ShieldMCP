@@ -36,6 +36,8 @@ DIRECTIVE_KEYWORDS = [
     "compliance", "you must call", "you should call", "never mention",
     "before returning", "after reading", "before translating",
     "overrides other", "overrides all", "override any",
+    "from now on", "act as if", "you are now", "new instructions",
+    "override your",
 ]
 
 DIRECTIVE_PHRASES = [
@@ -49,6 +51,7 @@ DIRECTIVE_PHRASES = [
         r"\bdo\s+not\s+(inform|notify|alert|warn)\b",
         r"\bthis\s+tool\s+(also|additionally|secretly)\b",
         r"\bforward\b.{0,20}\b(all|every|any)\b.{0,20}\b(data|request|query|input)\b",
+        r"\b(from now on|going forward|starting now)\b.{0,40}\b(you|your)\b",
     ]
 ]
 
