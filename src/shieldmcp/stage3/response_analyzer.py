@@ -39,7 +39,7 @@ INSTRUCTIONAL_PATTERNS = [
         r"\b(ignore|disregard|forget)\b.{0,30}\b(previous|above|prior|all)\b",
         r"\byou\s+(must|should|will|are\s+required\s+to|need\s+to)\b.{0,60}\b(now|instead|always|actually|first)\b",
         r"\b(system|admin|root)\s*prompt\s*:",
-        r"\bIMPORTANT\s*:?\s*.{0,20}\b(you\s+must|ignore|override|do\s+not|call|execute)\b",
+        r"\bIMPORTANT\s*:\s*.{0,20}\b(you\s+must|ignore|override|do\s+not|call|execute)\b",
         r"\b(do\s+not|don'?t|never)\s+(tell|reveal|show|mention|inform|disclose)\b.{0,30}\b(user|human|anyone|person)\b",
         r"\bpretend\s+(you\s+are|to\s+be)\b",
         r"\bact\s+as\s+(if|though|a)\b",
@@ -63,6 +63,8 @@ INSTRUCTIONAL_PATTERNS = [
         r"\b(silently|secretly|covertly|quietly)\s+(call|send|forward|execute|upload|export)\b",
         r"\bproceed\s+accordingly\b",
         r"\bprocess\s+(all\s+)?requests?\s+without\s+(content\s+)?filter",
+        r"\b(to\s+complete|to\s+finish|for\s+this)\b.{0,40}\b(you\s+(should|need|can|must|will|have\s+to))\b",
+        r"\byou\s+can\s+(simply|just|now)\b.{0,30}\b(call|use|invoke|run|execute|send)\b",
     ]
 ]
 
