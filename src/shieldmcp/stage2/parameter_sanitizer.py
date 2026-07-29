@@ -252,11 +252,19 @@ def _param_alert(
     detection_type: str,
     details: dict,
 ) -> SecurityAlert:
+    family_map = {
+        "sql_injection": AttackFamily.PARAMETER_INJECTION,
+        "shell_injection": AttackFamily.PARAMETER_INJECTION,
+        "path_traversal": AttackFamily.PARAMETER_INJECTION,
+        "prompt_injection": AttackFamily.INDIRECT_PROMPT_INJECTION,
+    }
+    attack_family = family_map.get(detection_type, AttackFamily.TOOL_POISONING)
+
     return SecurityAlert(
         alert_id=str(uuid.uuid4()),
         stage=CheckStage.PARAMETER,
         severity=severity,
-        attack_family=AttackFamily.INDIRECT_PROMPT_INJECTION,
+        attack_family=attack_family,
         action=Action.BLOCK if severity in (Severity.CRITICAL, Severity.HIGH) else Action.WARN,
         message=message,
         details={"detection_type": detection_type, **details},
