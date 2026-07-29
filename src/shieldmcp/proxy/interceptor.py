@@ -42,8 +42,7 @@ class StdioProxy:
         self.server_id = server_id
         self.pipeline = ShieldPipeline(config)
         self._server_process: asyncio.subprocess.Process | None = None
-        # Stable per-connection session so cross-call correlation and response
-        # tool-name resolution work across the whole client session.
+        self._client_writer: asyncio.StreamWriter | None = None
         self._session_id: str = str(uuid.uuid4())
 
     async def start(self) -> None:
@@ -60,6 +59,13 @@ class StdioProxy:
             "MCP server started: %s (pid=%s)",
             " ".join(self.server_command),
             self._server_process.pid,
+        )
+
+        transport, protocol = await asyncio.get_event_loop().connect_write_pipe(
+            asyncio.streams.FlowControlMixin, sys.stdout.buffer
+        )
+        self._client_writer = asyncio.StreamWriter(
+            transport, protocol, None, asyncio.get_event_loop()
         )
 
         await asyncio.gather(
@@ -79,7 +85,15 @@ class StdioProxy:
         try:
             async for message in _read_jsonrpc_messages(reader):
                 intercepted = await self._intercept_client_message(message)
-                if intercepted is not None:
+                if intercepted is None:
+                    continue
+
+                if "error" in intercepted:
+                    raw = json.dumps(intercepted)
+                    frame = f"Content-Length: {len(raw)}\r\n\r\n{raw}"
+                    self._client_writer.write(frame.encode())
+                    await self._client_writer.drain()
+                else:
                     raw = json.dumps(intercepted)
                     frame = f"Content-Length: {len(raw)}\r\n\r\n{raw}"
                     self._server_process.stdin.write(frame.encode())
@@ -93,19 +107,15 @@ class StdioProxy:
         """Read from server (subprocess stdout), intercept, forward to client."""
         assert self._server_process and self._server_process.stdout
 
-        writer_transport, writer_protocol = await asyncio.get_event_loop().connect_write_pipe(
-            asyncio.streams.FlowControlMixin, sys.stdout.buffer
-        )
-        writer = asyncio.StreamWriter(writer_transport, writer_protocol, None, asyncio.get_event_loop())
-
         try:
             async for message in _read_jsonrpc_messages(self._server_process.stdout):
                 intercepted = await self._intercept_server_message(message)
-                if intercepted is not None:
-                    raw = json.dumps(intercepted)
-                    frame = f"Content-Length: {len(raw)}\r\n\r\n{raw}"
-                    writer.write(frame.encode())
-                    await writer.drain()
+                if intercepted is None:
+                    continue
+                raw = json.dumps(intercepted)
+                frame = f"Content-Length: {len(raw)}\r\n\r\n{raw}"
+                self._client_writer.write(frame.encode())
+                await self._client_writer.drain()
         except (asyncio.CancelledError, ConnectionError):
             pass
 
@@ -143,11 +153,9 @@ class StdioProxy:
 
     async def _intercept_server_message(self, msg: dict[str, Any]) -> dict[str, Any] | None:
         """Intercept inbound server→client messages."""
-        # Check if this is a tools/list response
         if "result" in msg and isinstance(msg["result"], dict):
             result = msg["result"]
 
-            # tools/list response has a "tools" key
             if "tools" in result and isinstance(result["tools"], list):
                 action, filtered_tools, alerts = await self.pipeline.validate_tools(
                     self.server_id, result["tools"]
@@ -159,7 +167,6 @@ class StdioProxy:
                         "BLOCKED tools/list: all tools removed (alerts: %d)", len(alerts)
                     )
 
-            # tools/call response has "content" key
             elif "content" in result:
                 tool_name = self._last_called_tool or "unknown"
                 action, modified, alerts = await self.pipeline.process_tool_response(
@@ -196,7 +203,6 @@ def _make_error_response(msg_id: Any, code: int, message: str) -> dict[str, Any]
 async def _read_jsonrpc_messages(reader: asyncio.StreamReader):
     """Parse JSON-RPC messages with Content-Length framing from a stream."""
     while True:
-        # Read headers
         headers = {}
         while True:
             line = await reader.readline()
@@ -211,7 +217,6 @@ async def _read_jsonrpc_messages(reader: asyncio.StreamReader):
 
         content_length = int(headers.get("content-length", 0))
         if content_length == 0:
-            # Try reading as newline-delimited JSON (some MCP servers use this)
             continue
 
         body = await reader.readexactly(content_length)
