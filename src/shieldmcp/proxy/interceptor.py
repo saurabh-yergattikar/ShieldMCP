@@ -69,21 +69,38 @@ class StdioProxy:
         )
 
     async def _client_to_server(self) -> None:
-        """Read from client (stdin), intercept, forward to server."""
+        """Read from client (stdin), intercept, forward to server.
+
+        When the outbound message is blocked, the JSON-RPC error response is
+        written back to the client (stdout) instead of being forwarded to the
+        server, so the client sees a proper error and the server never receives
+        the blocked request.
+        """
         reader = asyncio.StreamReader()
         protocol = asyncio.StreamReaderProtocol(reader)
         await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin.buffer)
 
         assert self._server_process and self._server_process.stdin
 
+        writer_transport, writer_protocol = await asyncio.get_event_loop().connect_write_pipe(
+            asyncio.streams.FlowControlMixin, sys.stdout.buffer
+        )
+        stdout_writer = asyncio.StreamWriter(
+            writer_transport, writer_protocol, None, asyncio.get_event_loop()
+        )
         try:
             async for message in _read_jsonrpc_messages(reader):
                 intercepted = await self._intercept_client_message(message)
-                if intercepted is not None:
-                    raw = json.dumps(intercepted)
-                    frame = f"Content-Length: {len(raw)}\r\n\r\n{raw}"
-                    self._server_process.stdin.write(frame.encode())
-                    await self._server_process.stdin.drain()
+                if intercepted is None:
+                    continue
+                if "error" in intercepted:
+                    # Blocked request: return the error response to the client
+                    # instead of forwarding it to the server.
+                    stdout_writer.write(_encode_message(intercepted))
+                    await stdout_writer.drain()
+                    continue
+                self._server_process.stdin.write(_encode_message(intercepted))
+                await self._server_process.stdin.drain()
         except (asyncio.CancelledError, ConnectionError):
             pass
         finally:
@@ -102,9 +119,7 @@ class StdioProxy:
             async for message in _read_jsonrpc_messages(self._server_process.stdout):
                 intercepted = await self._intercept_server_message(message)
                 if intercepted is not None:
-                    raw = json.dumps(intercepted)
-                    frame = f"Content-Length: {len(raw)}\r\n\r\n{raw}"
-                    writer.write(frame.encode())
+                    writer.write(_encode_message(intercepted))
                     await writer.drain()
         except (asyncio.CancelledError, ConnectionError):
             pass
@@ -191,6 +206,12 @@ def _make_error_response(msg_id: Any, code: int, message: str) -> dict[str, Any]
         "id": msg_id,
         "error": {"code": code, "message": message},
     }
+
+
+def _encode_message(msg: dict[str, Any]) -> bytes:
+    """Encode a JSON-RPC message as a Content-Length framed byte string."""
+    raw = json.dumps(msg)
+    return f"Content-Length: {len(raw)}\r\n\r\n{raw}".encode()
 
 
 async def _read_jsonrpc_messages(reader: asyncio.StreamReader):
