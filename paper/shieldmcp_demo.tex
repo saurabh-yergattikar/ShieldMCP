@@ -72,7 +72,8 @@ against real MCP servers, watch the proxy inspect each tool call stage by stage,
 the offending payload highlighted token by token as it is blocked, and then paste
 their own inputs into a playground that runs the same detector. The detection
 framework and threat taxonomy that \shield{} operationalizes are developed in a
-companion research paper; the contribution \emph{here} is a deployable, inspectable
+companion research paper \citep{yergattikar2026securing}; the contribution
+\emph{here} is a deployable, inspectable
 system that turns that analysis into something people can touch, together with an
 honest, reproducible account of what the shipped detectors do and do not catch.
 
@@ -95,7 +96,8 @@ descriptions and a token-level classifier over tool responses).
 The benchmark and taxonomy cover five attack families: tool poisoning, indirect
 prompt injection through responses, supply-chain compromise, rug pulls, and
 cross-tool chains. We do not re-derive the taxonomy here (it is the subject of the
-companion paper); rather, each family is present so that a visitor can trigger it and
+companion paper, \citealp{yergattikar2026securing}); rather, each family is present
+so that a visitor can trigger it and
 observe the corresponding defense. What unifies them, and what makes the live
 demonstration instructive, is that all five ride on the \emph{tool channel} rather
 than the user prompt, so they are invisible to conventional input/output guardrails,
@@ -284,7 +286,8 @@ the text, the 0.0\% classifier column is a within-distribution result.}
 We evaluate \shield{} along three dimensions: attack-detection effectiveness,
 benign-task impact, and runtime latency. We report the \emph{framework} benchmark,
 which measures whether the detector fires on each scenario; the 70.9\% undefended
-baseline is an agent-level attack-success rate from the companion study and is
+baseline is an agent-level attack-success rate from the companion study
+\citep{yergattikar2026securing} and is
 included for context, not as a matched comparison. The harness comprises 40 MCP
 servers: 25 benign servers drawn from popular open-source implementations
 (filesystem, database, web-search, code-execution, calendar) and 15 adversarial
@@ -353,7 +356,8 @@ well under the 120~ms budget we target, and the heuristic backend is effectively
 free.
 
 \paragraph{Expert review.}
-To complement automated metrics, the companion study recruited three security
+To complement automated metrics, the companion study \citep{yergattikar2026securing}
+recruited three security
 engineers with production MCP experience to review 50 sampled alerts; evaluators
 agreed with the ground-truth classification in 92\% of cases, with disagreements
 concentrated on borderline descriptions containing legitimate instructional
