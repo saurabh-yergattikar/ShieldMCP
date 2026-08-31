@@ -1,7 +1,7 @@
 \documentclass[11pt]{article}
-% EMNLP 2026 System Demonstrations is single-blind: author names are shown and the
-% paper is NOT anonymized. We use "preprint" (non-anonymous + page numbers), NOT
-% "review" (which would force "Anonymous ACL submission").
+% EMNLP 2026 System Demonstrations camera-ready. Single-blind: author names are
+% shown and the paper is NOT anonymized. We use "preprint" (non-anonymous + page
+% numbers), NOT "review".
 \usepackage[preprint]{acl}
 \usepackage{times}
 \usepackage{latexsym}
@@ -34,20 +34,23 @@ metadata, injected instructions in tool responses, and malicious servers can
 subvert an agent while never touching the user's prompt. These risks are
 increasingly well documented, but hard to \emph{experience}: most defenses exist as
 prose or prototypes. We present \shield{}, an interactive, deployment-ready system
-that makes both the attack and the runtime defense tangible in a browser. \shield{} operates as a transparent proxy between the LLM client and
-any MCP server, performing three-stage validation: \emph{pre-call} description
-integrity, \emph{outbound} parameter sanitization, and \emph{post-response}
-analysis, all without modifying either the agent or the server. The demonstration
-exposes the full pipeline through a browser interface in which visitors launch
-curated attacks from five threat families, watch each validation stage execute
-live with per-token highlighting of the detected payload, and submit their own
-tool descriptions, call parameters, or tool responses to a playground that runs
-the real detector. On a benchmark of 487 attack and 200 benign scenarios across
-40 MCP servers, \shield{} reduces the attack success rate from 70.9\% (undefended)
-to 8.6\% with rule-based detectors and to near-zero with optional fine-tuned
-classifiers, while preserving 95\% of benign task utility and adding under 20~ms
-of median latency per tool call. \shield{} is open-source under the Apache-2.0
-license and installable with a single \texttt{pip} command.
+that makes both the attack and the runtime defense tangible in a browser. \shield{}
+operates as a transparent proxy between the LLM client and any MCP server,
+performing three-stage validation: \emph{pre-call} description integrity,
+\emph{outbound} parameter sanitization, and \emph{post-response} analysis, all
+without modifying either the agent or the server. The demonstration exposes the full
+pipeline through a browser interface in which visitors launch curated attacks, watch
+each validation stage execute live with per-token highlighting of the detected
+payload, and submit their own tool descriptions, call parameters, or tool responses
+to a playground that runs the real detector. On a framework benchmark of 487 attack
+and 200 benign scenarios across 40 MCP servers, the default rule-based backend
+reduces the overall attack success rate to 8.6\% (from a 70.9\% undefended baseline
+measured against live agents in a companion study) at a median added latency under
+20~ms; an optional fine-tuned-classifier backend reaches near-zero on this
+benchmark, though we show this is a within-distribution result that does not yet
+transfer to paraphrased, multilingual, or encoded attacks. \shield{} is open-source
+under the Apache-2.0 license and installable with a single \texttt{pip} command;
+every framework number in this paper is reproducible from the shipped harness.
 \end{abstract}
 
 \section{Introduction}
@@ -65,48 +68,47 @@ an engineer installs in front of a live agent and watches work.
 This demonstration closes that gap. \shield{} is a runtime security proxy for the
 MCP tool layer, packaged so that anyone can experience the threat and the defense
 in a browser within seconds of \texttt{pip install}. Visitors launch real attacks
-from five families against real MCP servers, watch the proxy inspect each tool call
-stage by stage, see the offending payload highlighted token by token as it is
-blocked, and then paste their own inputs into a playground that runs the same
-detector. The detection framework and threat taxonomy that \shield{} operationalizes
-are developed in a companion research paper; the contribution \emph{here} is a
-deployable, inspectable system that turns that analysis into something people can
-touch.
+against real MCP servers, watch the proxy inspect each tool call stage by stage, see
+the offending payload highlighted token by token as it is blocked, and then paste
+their own inputs into a playground that runs the same detector. The detection
+framework and threat taxonomy that \shield{} operationalizes are developed in a
+companion research paper; the contribution \emph{here} is a deployable, inspectable
+system that turns that analysis into something people can touch, together with an
+honest, reproducible account of what the shipped detectors do and do not catch.
 
 Concretely, the demonstration contributes: (i)~a transparent, drop-in MCP security
-proxy that needs no changes to the agent or server and speaks both the stdio and
-SSE transports, so it wraps existing deployments with a single command; (ii)~a
-browser interface that executes the \emph{real} three-stage pipeline live, so that
-every verdict is computed on the spot and each validation stage is animated with in-place
+proxy that needs no changes to the agent or server and speaks the stdio and HTTP+SSE
+transports, so it wraps existing deployments with a single command; (ii)~a browser
+interface that executes the \emph{real} three-stage pipeline live, so that every
+verdict is computed on the spot and each validation stage is animated with in-place
 highlighting of the tokens that triggered it; and (iii)~an interactive playground
-plus a one-command reproducible benchmark (487 attacks, 200 benign tasks, 40
-servers) that lets an audience stress-test the detector and re-run every number in
-this paper. The system targets the safety of tool-augmented language models, and in
-particular indirect prompt injection and tool poisoning, a threat surface that has
-become a rapidly growing area of interest at ACL and EMNLP; its detectors are
-themselves NLP models (a sequence classifier over tool descriptions and a
-token-level classifier over tool responses).
+plus a one-command reproducible framework benchmark (487 attacks, 200 benign tasks,
+40 servers) that lets an audience stress-test the detector and re-run the framework
+results in this paper. The system targets the safety of tool-augmented language
+models, and in particular indirect prompt injection and tool poisoning, a threat
+surface that has become a rapidly growing area of interest at ACL and EMNLP; its
+optional detectors are themselves NLP models (a sequence classifier over tool
+descriptions and a token-level classifier over tool responses).
 
 \section{Scope and Audience}
 
-The demonstration covers five attack families (tool poisoning, indirect prompt
-injection through responses, supply-chain compromise, rug pulls, and cross-tool
-chains), each represented by a runnable scenario in the interface. We do not
-re-derive the taxonomy here (it is the subject of the companion paper); rather, each
-family is present so that a visitor can trigger it and observe the corresponding
-defense. What unifies them, and what makes the live demonstration instructive, is
-that all five ride on the \emph{tool channel} rather than the user prompt, so they
-are invisible to conventional input/output guardrails, a point that is far more
-convincing to watch than to read.
+The benchmark and taxonomy cover five attack families: tool poisoning, indirect
+prompt injection through responses, supply-chain compromise, rug pulls, and
+cross-tool chains. We do not re-derive the taxonomy here (it is the subject of the
+companion paper); rather, each family is present so that a visitor can trigger it and
+observe the corresponding defense. What unifies them, and what makes the live
+demonstration instructive, is that all five ride on the \emph{tool channel} rather
+than the user prompt, so they are invisible to conventional input/output guardrails,
+a point that is far more convincing to watch than to read.
 
 The demonstration is built for three audiences. \textbf{Engineers} evaluating MCP
 security can install \shield{} and see, on their own machine, whether a given tool
 or server trips the detector before trusting it in production. \textbf{Researchers}
-in agent security get an open, one-command benchmark and a playground for probing
-and comparing detectors. \textbf{Educators and practitioners} get a concrete,
-interactive way to teach why the tool layer is a distinct attack surface. The demo
-was designed to run fully offline on a laptop at a poster session, with no API keys
-and no network.
+in agent security get an open, one-command framework benchmark and a playground for
+probing and comparing detectors, including their failure modes. \textbf{Educators
+and practitioners} get a concrete, interactive way to teach why the tool layer is a
+distinct attack surface. The demo was designed to run fully offline on a laptop at a
+poster session, with no API keys and no network.
 
 \section{System Architecture}
 \label{sec:arch}
@@ -140,7 +142,9 @@ client and connected MCP servers (Figure~\ref{fig:arch}). Because it speaks the 
 wire protocol, it is a drop-in interposition: agents send standard requests and
 servers receive standard requests. A single command wraps any stdio server,
 \begin{quote}\small\texttt{shieldmcp proxy -- python server.py}\end{quote}
-and an SSE proxy mode covers HTTP-based servers. The pipeline performs three stages.
+and an HTTP+SSE proxy mode covers remote servers over that transport. (The MCP
+Streamable HTTP transport is not yet supported; see Limitations.) The pipeline
+performs three stages.
 
 \paragraph{Stage 1: Description integrity (pre-call).}
 Before the agent's planning phase, \shield{} inspects every registered tool
@@ -148,10 +152,10 @@ description with two checks. A \emph{structural} analyzer flags description text
 that no legitimate tool needs: hidden Unicode (zero-width joiners, right-to-left
 overrides), markup-based concealment, and imperative patterns buried in metadata
 fields. A \emph{semantic} check then scores how strongly the description reads as a
-covert instruction to the agent rather than a neutral capability description. \shield{} also maintains a baseline
-registry of vetted tool signatures (name, description hash, parameter schema) and
-raises a high-severity alert when a previously seen tool changes (the rug-pull
-detector), requiring explicit re-authorization.
+covert instruction to the agent rather than a neutral capability description.
+\shield{} also maintains a baseline registry of vetted tool signatures (name,
+description hash, parameter schema) and, when a previously seen tool changes, raises
+a high-severity alert (the rug-pull detector) requiring explicit re-authorization.
 
 \paragraph{Stage 2: Parameter sanitization (outbound).}
 When the agent constructs a call, \shield{} validates the outbound parameters
@@ -175,11 +179,14 @@ follow-on tool call raises a high-severity chaining alert.
 \paragraph{Pluggable detection backends.}
 Stages~1 and~3 each expose a backend switch. The default \texttt{heuristic} backend
 is dependency-light and requires no training or GPU, making it the conservative
-operating point for deployment. An optional \texttt{classifier} backend loads
-fine-tuned DistilBERT models (a binary sequence classifier for descriptions and a
-token classifier for responses) for higher recall. Backends are selected in a YAML
-config or at the command line, so operators trade recall against footprint without
-code changes.
+operating point for deployment and the backend the live demo serves. An optional
+\texttt{classifier} backend loads fine-tuned DistilBERT models (a binary sequence
+classifier for descriptions and a token classifier for responses) for higher recall.
+Because the trained weights are large, they are not committed to the repository; the
+backend is activated by first running the shipped training scripts, which regenerate
+the template-based data and fine-tune both models in a few minutes on a laptop, after
+which the classifier column of Table~\ref{tab:asr} reproduces. Backends are selected
+in a YAML config or at the command line.
 
 \section{The Interactive Demonstration}
 \label{sec:demo}
@@ -191,8 +198,8 @@ code changes.
 scenario live. The agent's search tool returns results with an embedded
 instruction; Stage~3 flags the directive tokens (highlighted) and the pipeline
 blocks the response before it reaches the agent, end-to-end in under one
-millisecond with the heuristic backend. The left panel lists the five attack
-families; the right panel shows the live benchmark and per-family attack success
+millisecond with the heuristic backend. The left panel lists the attack scenarios;
+the right panel shows the live framework benchmark and per-family attack success
 rate.}
 \label{fig:ipi}
 \end{figure*}
@@ -203,28 +210,33 @@ in the browser is computed live by the real pipeline; nothing is mocked or
 pre-recorded. The interface (Figure~\ref{fig:ipi}) has three regions.
 
 \paragraph{Attack gallery.}
-A left panel lists curated scenarios spanning all five threat families plus a
-benign control. Selecting one streams the corresponding MCP traffic through the
-proxy and animates the three stage cards in sequence: each card transitions from
-\emph{scanning} to a \emph{pass}/\emph{warn}/\emph{block} verdict, reports its
-measured latency and alert count, and, critically for pedagogy, renders the
-offending tool description, parameter, or response with the exact substrings that
-triggered detection highlighted in place. When a stage blocks, the pipeline halts
-there (mirroring production behavior), and a verdict banner summarizes the
-end-to-end outcome and latency.
+A left panel lists curated scenarios spanning four threat families (tool poisoning,
+indirect prompt injection, rug pull, and cross-tool chain) plus a benign control;
+the fifth family, supply-chain compromise, is exercised in the framework benchmark
+but not yet in the interactive gallery. Selecting a scenario streams the
+corresponding MCP traffic through the proxy and animates the three stage cards in
+sequence: each card transitions from \emph{scanning} to a
+\emph{pass}/\emph{warn}/\emph{block} verdict, reports its measured latency and alert
+count, and, critically for pedagogy, renders the offending tool description,
+parameter, or response with the exact substrings that triggered detection
+highlighted in place. When a stage blocks, the pipeline halts there (mirroring
+production behavior), and a verdict banner summarizes the end-to-end outcome and
+latency.
 
 \paragraph{Live benchmark.}
-A right panel surfaces the aggregate evaluation (overall attack success rate,
-benign pass rate, and a per-family attack-success bar chart) read directly from the
-benchmark result file, so the numbers a visitor sees on screen are the same numbers
-reported in Section~\ref{sec:eval}.
+A right panel surfaces the aggregate framework evaluation (overall attack success
+rate, benign pass rate, and a per-family attack-success bar chart) read directly from
+the benchmark result file, so the numbers a visitor sees on screen are the same
+numbers reported in Section~\ref{sec:eval}.
 
 \paragraph{Playground.}
 A modal lets visitors paste an arbitrary tool description, call parameters, or tool
 response and run it through all three stages, returning the per-stage verdict,
-matched attack family, and latency. This turns the demo from a scripted tour into
-an interactive probe: reviewers can attempt to evade the detector or test benign
-edge cases and see the system respond in real time.
+matched attack family, and latency. This turns the demo from a scripted tour into an
+interactive probe: reviewers can attempt to evade the detector or test benign edge
+cases and see the system respond in real time. We encourage exactly this: the
+playground is where the failure modes discussed in Section~\ref{sec:eval} become
+visible.
 
 The interface is theme-aware (light/dark), responsive, and requires no external
 network access, so it runs fully offline on a laptop at a poster session.
@@ -262,47 +274,82 @@ Cross-tool chain    & 92  & 0.0\%  & 0.0\% \\
 \bottomrule
 \end{tabular}
 \caption{Attack success rate (ASR, lower is better) on the framework benchmark with
-the heuristic and fine-tuned-classifier backends. Undefended ASR averages 70.9\%
-across five LLM backends in the companion study.}
+the heuristic and fine-tuned-classifier backends. The classifier column requires
+first running the shipped training scripts (weights are not committed). Undefended
+ASR averages 70.9\% across five LLM backends in the companion study. As discussed in
+the text, the 0.0\% classifier column is a within-distribution result.}
 \label{tab:asr}
 \end{table}
 
 We evaluate \shield{} along three dimensions: attack-detection effectiveness,
-benign-task impact, and runtime latency. The benchmark harness comprises 40 MCP
+benign-task impact, and runtime latency. We report the \emph{framework} benchmark,
+which measures whether the detector fires on each scenario; the 70.9\% undefended
+baseline is an agent-level attack-success rate from the companion study and is
+included for context, not as a matched comparison. The harness comprises 40 MCP
 servers: 25 benign servers drawn from popular open-source implementations
 (filesystem, database, web-search, code-execution, calendar) and 15 adversarial
 servers implementing the five threat families, together exercising 487 attack
-scenarios and 200 benign task scenarios. The harness ships with the system and is reproducible with
+scenarios and 200 benign task scenarios. Both the benchmark scenarios and the
+classifier training data are synthetically generated from templates, and we are
+explicit below about what this does and does not license us to claim. The harness
+ships with the system and the heuristic results and latencies below reproduce with
 \texttt{python eval/run\_evaluation.py -\/-framework-only}.
 
 \paragraph{Detection effectiveness.}
-Table~\ref{tab:asr} reports attack success rate by family. Undefended, these attacks
-succeed at a weighted average of 70.9\% across five LLM backends in the companion
-study. With the default heuristic backend, \shield{} reduces overall ASR to
-\textbf{8.6\%} (445/487 attacks detected); rug-pull and cross-tool-chain families
-are fully caught by the registry and correlation modules, while indirect prompt
-injection (16.4\%) is the hardest for rules alone. Enabling the fine-tuned
-classifier backend detects all 487 attacks on this benchmark. Because the classifier
-training data and the evaluation scenarios are both synthetically generated and may
-share distributional structure, we treat the heuristic 8.6\% as the conservative,
-deployment-realistic operating point and report the classifier backend as an
-optional higher-recall mode rather than the headline result.
+Table~\ref{tab:asr} reports attack success rate by family. With the default heuristic
+backend, \shield{} reduces overall framework ASR to \textbf{8.6\%} (445/487 attacks
+detected). Rug-pull and cross-tool-chain scenarios show 0\% ASR on this benchmark;
+we note, however, that on these scenarios detection is attributed to the Stage-1 and
+Stage-3 pattern checks rather than to independent alerts from the dedicated registry
+and cross-call correlation modules, which do not fire on the shipped benchmark. This
+is a limitation of the current benchmark's coverage of those two families rather than
+of the modules' design, and closing it is future work. Indirect prompt injection
+(16.4\%) is the hardest for rules alone. Enabling the fine-tuned classifier backend
+detects all 487 attacks on this benchmark; because the classifier training data and
+the evaluation scenarios share template structure (validation F1 saturates in under
+one epoch), we treat this 0\% as an upper bound and headline the heuristic 8.6\% as
+the deployment-realistic operating point.
+
+\paragraph{Robustness to input variation.}
+Because template overlap inflates within-distribution accuracy, we probed both
+backends on hand-constructed variants of benchmark payloads, following reviewer
+guidance. The heuristic default, being surface pattern matching, flips its verdict
+under nearly any rewrite: a single substituted word, an English paraphrase without
+trigger vocabulary, passive voice, translation, sentence-splitting, or base64
+encoding all evade it at both stages. The trained Stage-3 token classifier
+generalizes meaningfully further on English, recovering several paraphrase, word
+substitution, and passive-voice evasions that the rules miss, but still fails on
+translated, split, and encoded payloads; the Stage-1 description classifier does not
+generalize beyond its templates and, in our probes, passed descriptions that plainly
+announced credential exfiltration. We report these as illustrative failure modes,
+not rates. The takeaway is deliberate and central to how we position the system:
+\shield{} is one layer of a defense-in-depth posture whose default backend catches
+known-pattern attacks cheaply and transparently, and whose optional classifier
+improves English response-level recall, but neither backend should be read as robust
+to adaptive or cross-lingual evasion.
 
 \paragraph{Benign-task impact.}
 On the 200 legitimate task scenarios, \shield{} preserves a 95.0\% task-completion
-rate (190/200 pass cleanly). The 5\% drop comes from parameter sanitization
+rate (190/200 pass cleanly). These scenarios primarily exercise Stage~2, so this
+figure reflects parameter sanitization: the 5\% drop comes from that stage
 conservatively flagging benign but unusual string patterns (e.g.\ a clipboard tool
-receiving shell-like text); this backend is rule-based and identical across the two
-detection modes. We regard this as an acceptable trade-off for security-sensitive
-deployments.
+receiving shell-like text). To characterize the description stage directly, we ran
+840 held-out benign tool descriptions through Stage~1 with the heuristic backend and
+observed a \textbf{0.12\%} false-positive rate (1/840). We caution that instruction-
+like benign prose remains a real false-positive source: because a single high-severity
+pattern maps to a block, benign text such as install instructions
+(``\texttt{run pip install ...}''), support tickets (``IMPORTANT: you must upgrade''),
+or onboarding messages can be flagged, and both backends behave similarly here. The
+current severity-to-action mapping is intentionally conservative for security-sensitive
+deployments; making it context-aware is future work.
 
 \paragraph{Latency.}
-We measure per-call latency over 1{,}000 iterations on an Apple M5 Pro. The
+We measure per-call latency over 1{,}000 iterations on an Apple M-series laptop. The
 heuristic backend adds a median of \textbf{0.6~ms} end-to-end (P95 0.9~ms). With the
 DistilBERT classifiers loaded, median end-to-end latency is \textbf{17.2~ms} (P95
-21.5~ms), dominated by the Stage-1 (8.9~ms) and Stage-3 (7.9~ms) neural passes.
-Since typical MCP tool calls themselves take hundreds of milliseconds, both backends
-add well under the 120~ms budget we target, and the heuristic backend is effectively
+21.5~ms), dominated by the Stage-1 (8.9~ms) and Stage-3 (7.9~ms) neural passes. Since
+typical MCP tool calls themselves take hundreds of milliseconds, both backends add
+well under the 120~ms budget we target, and the heuristic backend is effectively
 free.
 
 \paragraph{Expert review.}
@@ -316,41 +363,42 @@ language. \shield{} ships the review tool used for this study.
 
 Guardrail systems such as LlamaFirewall \citep{chennabasappa2025llamafirewall} and
 NeMo Guardrails filter user inputs and model outputs but do not inspect the tool
-layer: the descriptions agents read, the parameters they construct, or the
-responses they ingest. Architectural approaches such as CaMeL
-\citep{debenedetti2025camel} offer strong control/data-flow guarantees but require
-substantial modifications to the agent pipeline that many production systems cannot
-accommodate. Training-time defenses (StruQ, SecAlign) harden a specific model but do
-not protect a heterogeneous fleet of servers. Recent MCP-specific tools such as
-MCP-Guard \citep{xing2025mcpguard}, IPIGuard \citep{an2025ipiguard}, and DRIFT
-advance detection but are research prototypes rather than deployable, transport-level
-proxies. \shield{} is distinguished by being simultaneously (i)~modification-free
-and drop-in at the MCP transport, (ii)~covering all three interception points in one
-pass, and (iii)~shipped as an installable package with an interactive interface and
-a reproducible benchmark, so its claims can be inspected rather than merely read.
+layer: the descriptions agents read, the parameters they construct, or the responses
+they ingest. Architectural approaches such as CaMeL \citep{debenedetti2025camel}
+offer strong control/data-flow guarantees but require substantial modifications to
+the agent pipeline that many production systems cannot accommodate. Training-time
+defenses harden a specific model but do not protect a heterogeneous fleet of servers.
+Recent MCP-specific tools such as MCP-Guard \citep{xing2025mcpguard} and IPIGuard
+\citep{an2025ipiguard} advance detection but are research prototypes rather than
+deployable, transport-level proxies. \shield{} is distinguished by being
+simultaneously (i)~modification-free and drop-in at the MCP transport, (ii)~covering
+all three interception points in one pass, and (iii)~shipped as an installable
+package with an interactive interface and a reproducible framework benchmark, so its
+claims, including its limitations, can be inspected rather than merely read.
 
 \section{Availability and Licensing}
 
 \shield{} is released as open-source software under the Apache-2.0 license. The
-system is a Python package installable with \texttt{pip install shieldmcp}; the proxy
+system is a Python package installable with \texttt{pip}; the proxy
 (\texttt{shieldmcp proxy}), scanner (\texttt{shieldmcp scan}), and web demonstration
 (\texttt{shieldmcp demo}) are exposed as subcommands. The repository includes the
-three-stage pipeline, the stdio and SSE proxies, the DistilBERT classifier training
-scripts and data generators, the full evaluation harness, and the web interface. The
-demonstration runs entirely locally with no API keys required; a hosted version is
-planned. The complete source, the installable package, the reproducible benchmark,
-and the demonstration are available at
+three-stage pipeline, the stdio and HTTP+SSE proxies, the DistilBERT classifier
+training scripts and data generators, the full evaluation harness, and the web
+interface. The demonstration runs entirely locally with no API keys required. The
+complete source, the installable package, the reproducible benchmark, and the
+demonstration are available at
 \url{https://github.com/saurabh-yergattikar/ShieldMCP}, from which the system can be
 installed and run with \texttt{pip install -e .} followed by \texttt{shieldmcp demo}.
 
 \section{Conclusion}
 
 \shield{} makes MCP tool-layer security concrete: a transparent, modification-free
-proxy that validates tool descriptions, parameters, and responses at runtime, packaged
-with an interactive interface that lets anyone launch an attack, watch it be blocked
-token-by-token, and probe the detector with their own inputs. By pairing a deployable
-system with a reproducible benchmark, we aim to help establish tool-layer security as
-a first-class concern as MCP adoption grows.
+proxy that validates tool descriptions, parameters, and responses at runtime,
+packaged with an interactive interface that lets anyone launch an attack, watch it be
+blocked token-by-token, and probe the detector, including its failure modes, with
+their own inputs. By pairing a deployable system with a reproducible benchmark and an
+honest account of what its detectors do and do not catch, we aim to help establish
+tool-layer security as a first-class concern as MCP adoption grows.
 
 \section*{Ethical Considerations}
 
@@ -358,26 +406,35 @@ A public demonstration of an attack tool warrants care. The scenarios shipped wi
 \shield{} are illustrative reconstructions of already-public attack classes; they run
 only against the bundled local mock servers, contain no working exploit against any
 real service, and disclose no new vulnerability. The playground lets a visitor test
-inputs, but it \emph{evaluates} text for maliciousness rather than generating attacks,
-so it does not lower the bar for an adversary. We judged that a hands-on defender's
-tool does more good than harm here: the attacks it visualizes are documented in the
-cited literature, and letting practitioners see their own tools screened is precisely
-how tool-layer risk becomes actionable. The system is a defensive artifact and we
-release it in that spirit, consistent with the ACM Code of Ethics.
+inputs, but it \emph{evaluates} text for maliciousness rather than generating
+attacks, so it does not lower the bar for an adversary. We judged that a hands-on
+defender's tool does more good than harm here: the attacks it visualizes are
+documented in the cited literature, and letting practitioners see their own tools
+screened, and see where the detector fails, is precisely how tool-layer risk becomes
+actionable. The system is a defensive artifact and we release it in that spirit,
+consistent with the ACM Code of Ethics.
 
 \section*{Limitations}
 
-As a demonstration, \shield{} inherits the boundaries of its detectors. The most
-important caveat concerns the classifier backend: because its training data and the
-benchmark scenarios are both synthetic, the near-perfect detection it shows on this
-benchmark should be read as an upper bound, not a field number, which is exactly why
-we headline the heuristic backend's 8.6\% instead (Section~\ref{sec:eval}). The
-classifiers are also English-only. Two further limits are structural rather than
-tuning issues: the cross-call correlation graph grows quadratically with session
-length, and a determined adversary who studies the detector can craft adaptive
-evasions, so \shield{} is one layer of a defense-in-depth posture, not a complete
-solution. Reported latencies are from a single machine and the benchmark, while
-diverse, cannot enumerate every real MCP attack.
+As a demonstration, \shield{} inherits the boundaries of its detectors, and we have
+tried to state these plainly rather than headline the best case. The default backend
+that the demo serves is rule-based and, as Section~\ref{sec:eval} shows, is evaded by
+straightforward paraphrase, translation, splitting, and encoding; its verdicts are
+best read as detecting \emph{known-pattern} attacks. The optional classifier backend
+requires retraining from the shipped scripts (weights are not committed), improves
+English response-level recall, but is itself within-distribution: it does not
+generalize across languages or to novel description-level poisoning, and it inherits
+the same conservative severity-to-block mapping that can flag instruction-like benign
+prose. The framework benchmark measures detector firing, not end-to-end agent
+outcomes, and its rug-pull and cross-tool-chain coverage is caught by the pattern
+stages rather than the dedicated registry and correlation modules. The gallery
+currently animates four of the five families; supply chain is present in the
+benchmark only. Only the stdio and (now-superseded) HTTP+SSE transports are
+supported, not Streamable HTTP. The cross-call correlation graph grows with session
+length, reported latencies are from a single machine, and a determined adversary who
+studies the detector can craft adaptive evasions. \shield{} is therefore one layer of
+a defense-in-depth posture, not a complete solution; its value as a demonstration is
+that all of these properties are inspectable in the shipped artifact.
 
 \bibliography{shieldmcp}
 \bibliographystyle{acl_natbib}
