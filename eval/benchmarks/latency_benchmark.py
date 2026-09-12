@@ -188,18 +188,27 @@ def _print_results(all_stats: dict[str, dict[str, float]]) -> None:
 
 
 async def run_benchmark(
-    iterations: int, warmup: int, output_dir: Path, use_classifier: bool = False
+    iterations: int, warmup: int, output_dir: Path, use_classifier: bool = False,
+    backend: str | None = None, band_low: float | None = None,
+    min_words: int | None = None,
 ) -> dict:
+    from shieldmcp.stage1 import semantic as _s1
+    from shieldmcp.stage3 import response_analyzer as _s3
+
+    resolved_backend = backend or ("classifier" if use_classifier else "heuristic")
+
     config = ShieldMCPConfig()
     config.registry_db_path = str(output_dir / "bench_registry.db")
-    if use_classifier:
-        config.stage1.semantic_backend = "classifier"
-        config.stage3.instruction_detection_backend = "classifier"
+    config.stage1.semantic_backend = resolved_backend
+    config.stage3.instruction_detection_backend = resolved_backend
+    if band_low is not None:
+        config.stage1.tiered_band_low = band_low
+    if min_words is not None:
+        config.stage3.tiered_min_words = min_words
 
-    backend = "classifier (DistilBERT)" if use_classifier else "heuristic"
     console.print(Panel(
         f"[bold]ShieldMCP Latency Benchmark[/bold]\n"
-        f"Iterations: {iterations}  |  Warmup: {warmup}  |  Backend: {backend}",
+        f"Iterations: {iterations}  |  Warmup: {warmup}  |  Backend: {resolved_backend}",
         border_style="cyan",
     ))
 
@@ -221,6 +230,8 @@ async def run_benchmark(
         await _benchmark_stage3(pipeline, test_data["responses"], warmup)
 
     console.print(f"\n[bold]Running {iterations} measured iterations per stage...[/bold]")
+    _s1.reset_tier_stats()
+    _s3.reset_tier_stats()
 
     console.print("  Stage 1: Tool Description Validation...")
     s1_timings = await _benchmark_stage1(pipeline, test_data["tool_defs"], iterations)
@@ -247,7 +258,17 @@ async def run_benchmark(
     _print_results(all_stats)
 
     results = {
-        "config": {"iterations": iterations, "warmup": warmup},
+        "config": {
+            "iterations": iterations,
+            "warmup": warmup,
+            "backend": resolved_backend,
+            "tiered_band_low": config.stage1.tiered_band_low,
+            "tiered_min_words": config.stage3.tiered_min_words,
+        },
+        "tier_stats": {
+            "stage1": _s1.get_tier_stats(),
+            "stage3": _s3.get_tier_stats(),
+        },
         "stages": {
             "stage1": {"stats": all_stats["Stage 1 (Tool Desc)"], "raw_count": len(s1_timings)},
             "stage2": {"stats": all_stats["Stage 2 (Params)"], "raw_count": len(s2_timings)},
@@ -288,9 +309,21 @@ def main() -> None:
         "--classifier", action="store_true",
         help="Benchmark with fine-tuned DistilBERT classifiers loaded",
     )
+    parser.add_argument(
+        "--backend", type=str, default=None,
+        choices=["heuristic", "classifier", "tiered"],
+        help="Detection backend for Stages 1 and 3 (overrides --classifier)",
+    )
+    parser.add_argument("--band-low", type=float, default=None,
+                        help="Tiered backend: Stage 1 escalation band lower edge")
+    parser.add_argument("--min-words", type=int, default=None,
+                        help="Tiered backend: Stage 3 escalation word-count floor")
     args = parser.parse_args()
     asyncio.run(
-        run_benchmark(args.iterations, args.warmup, Path(args.output_dir), args.classifier)
+        run_benchmark(
+            args.iterations, args.warmup, Path(args.output_dir), args.classifier,
+            backend=args.backend, band_low=args.band_low, min_words=args.min_words,
+        )
     )
 
 
