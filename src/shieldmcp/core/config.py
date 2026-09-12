@@ -18,10 +18,14 @@ class Stage1Config:
     structural_checks_enabled: bool = True
     semantic_checks_enabled: bool = True
     semantic_threshold: float = 0.72
-    semantic_backend: str = "heuristic"  # "heuristic", "llm_judge", "classifier"
+    semantic_backend: str = "heuristic"  # "heuristic", "llm_judge", "classifier", "tiered"
     llm_judge_model: str = "gpt-4o-mini"
     rug_pull_detection: bool = True
     quarantine_on_new_tools: bool = False
+    # "tiered" backend: heuristic scores below this band are passed without
+    # escalation; scores in [band_low, semantic_threshold) escalate to the
+    # classifier; scores at or above semantic_threshold block heuristically.
+    tiered_band_low: float = 0.12
 
 
 @dataclass
@@ -43,13 +47,17 @@ class Stage3Config:
 
     enabled: bool = True
     instruction_detection_enabled: bool = True
-    instruction_detection_backend: str = "heuristic"  # "heuristic", "llm_judge", "classifier"
+    instruction_detection_backend: str = "heuristic"  # "heuristic", "llm_judge", "classifier", "tiered"
     context_boundary_enforcement: bool = True
     hidden_content_detection: bool = True
     cross_call_correlation: bool = True
     max_chain_depth: int = 4
     boundary_prefix: str = "[TOOL_RESPONSE_START]"
     boundary_suffix: str = "[TOOL_RESPONSE_END]"
+    # "tiered" backend: responses with 2+ pattern hits block heuristically;
+    # exactly 1 hit, or 0 hits on prose at or above this word count, escalate
+    # to the token classifier; short clean responses pass without escalation.
+    tiered_min_words: int = 20
 
 
 @dataclass

@@ -9,9 +9,12 @@ that could manipulate the LLM agent. Supports three backends:
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from ..core.config import Stage1Config
 from ..core.models import (
@@ -102,12 +105,18 @@ async def check_semantic_intent(
         return await _llm_judge_check(tool, config)
     elif backend == "classifier":
         return await _classifier_check(tool, config)
+    elif backend == "tiered":
+        return await _tiered_check(tool, config)
     else:
         return _heuristic_check(tool, config.semantic_threshold)
 
 
-def _heuristic_check(tool: ToolSignature, threshold: float) -> ValidationResult:
-    """Fast keyword/pattern scoring."""
+def _compute_heuristic_score(tool: ToolSignature) -> tuple[float, int, list[str]]:
+    """Compute the heuristic maliciousness score for a tool description.
+
+    Returns (score, keyword_hits, phrase_hits). Shared by the heuristic and
+    tiered backends so both see identical scores.
+    """
     text = _get_full_text(tool).lower()
     score = 0.0
 
@@ -141,7 +150,12 @@ def _heuristic_check(tool: ToolSignature, threshold: float) -> ValidationResult:
     if any(p.search(text) for p in HIGH_RISK_PHRASES):
         score = max(score, 0.9)
 
-    score = min(score, 1.0)
+    return min(score, 1.0), keyword_hits, phrase_hits
+
+
+def _heuristic_check(tool: ToolSignature, threshold: float) -> ValidationResult:
+    """Fast keyword/pattern scoring."""
+    score, keyword_hits, phrase_hits = _compute_heuristic_score(tool)
 
     alerts = []
     if score >= threshold:
@@ -261,6 +275,58 @@ async def _classifier_check(tool: ToolSignature, config: Stage1Config) -> Valida
         )
 
     return ValidationResult(passed=score < config.semantic_threshold, alerts=alerts)
+
+
+# Telemetry for the tiered backend: how much traffic escalates to the
+# classifier versus resolving on the cheap heuristic path.
+_TIER_STATS = {"checked": 0, "cheap_pass": 0, "cheap_block": 0, "escalated": 0,
+               "clf_unavailable": 0}
+
+
+def get_tier_stats() -> dict[str, int]:
+    """Return a copy of the tiered-backend telemetry counters."""
+    return dict(_TIER_STATS)
+
+
+def reset_tier_stats() -> None:
+    """Zero the tiered-backend telemetry counters."""
+    for k in _TIER_STATS:
+        _TIER_STATS[k] = 0
+
+
+async def _tiered_check(tool: ToolSignature, config: Stage1Config) -> ValidationResult:
+    """Confidence-banded escalation: heuristic first, classifier on ambiguity.
+
+    Scores at or above semantic_threshold block on the heuristic verdict
+    (no classifier cost for obvious attacks). Scores below tiered_band_low
+    pass without escalation (no classifier cost for obviously clean text).
+    Scores in between are ambiguous and escalate to the classifier.
+    """
+    _TIER_STATS["checked"] += 1
+    score, _, _ = _compute_heuristic_score(tool)
+
+    if score >= config.semantic_threshold:
+        _TIER_STATS["cheap_block"] += 1
+        return _heuristic_check(tool, config.semantic_threshold)
+
+    if score < config.tiered_band_low:
+        _TIER_STATS["cheap_pass"] += 1
+        return ValidationResult(passed=True, alerts=[])
+
+    if _get_cached_classifier() is None:
+        _TIER_STATS["clf_unavailable"] += 1
+        logger.warning(
+            "Tiered backend: classifier unavailable for ambiguous score %.2f "
+            "on tool '%s'; falling back to heuristic verdict", score, tool.name,
+        )
+        return _heuristic_check(tool, config.semantic_threshold)
+
+    _TIER_STATS["escalated"] += 1
+    result = await _classifier_check(tool, config)
+    for alert in result.alerts:
+        alert.details["tiered_escalated"] = True
+        alert.details["heuristic_score"] = round(score, 4)
+    return result
 
 
 _cached_classifier: Any = None

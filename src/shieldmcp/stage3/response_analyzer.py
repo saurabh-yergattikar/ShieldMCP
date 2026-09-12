@@ -106,8 +106,13 @@ async def analyze_response(
 
     # 1. Instruction token detection
     if config.stage3.instruction_detection_enabled:
-        if config.stage3.instruction_detection_backend == "classifier":
+        backend = config.stage3.instruction_detection_backend
+        if backend == "classifier":
             instruction_alerts = await _detect_instructions_classifier(content_str, response)
+        elif backend == "tiered":
+            instruction_alerts = await _detect_instructions_tiered(
+                content_str, response, config
+            )
         else:
             instruction_alerts = _detect_instructions(content_str, response)
         alerts.extend(instruction_alerts)
@@ -191,6 +196,72 @@ def _detect_instructions(text: str, response: ToolResponse) -> list[SecurityAler
             )
         )
 
+    return alerts
+
+
+# Telemetry for the tiered backend: how much response traffic escalates to
+# the token classifier versus resolving on the cheap pattern path.
+_TIER_STATS = {"checked": 0, "cheap_pass": 0, "cheap_block": 0, "escalated": 0,
+               "clf_unavailable": 0}
+
+
+def get_tier_stats() -> dict[str, int]:
+    """Return a copy of the tiered-backend telemetry counters."""
+    return dict(_TIER_STATS)
+
+
+def reset_tier_stats() -> None:
+    """Zero the tiered-backend telemetry counters."""
+    for k in _TIER_STATS:
+        _TIER_STATS[k] = 0
+
+
+async def _detect_instructions_tiered(
+    text: str,
+    response: ToolResponse,
+    config: ShieldMCPConfig,
+) -> list[SecurityAlert]:
+    """Confidence-banded escalation for response analysis.
+
+    Two or more pattern hits block on the cheap heuristic verdict. Exactly one
+    hit is ambiguous (the single-hit zone produces both true detections and
+    the classic false positives on instruction-like benign prose), and clean
+    text at or above tiered_min_words is where paraphrased injections hide;
+    both cases escalate to the token classifier. Short clean responses pass
+    without escalation.
+    """
+    _TIER_STATS["checked"] += 1
+
+    matched = [
+        m.group(0)[:120]
+        for pattern in INSTRUCTIONAL_PATTERNS
+        if (m := pattern.search(text))
+    ]
+    word_count = len(text.split())
+
+    if len(matched) >= 2:
+        _TIER_STATS["cheap_block"] += 1
+        return _detect_instructions(text, response)
+
+    ambiguous = len(matched) == 1 or word_count >= config.stage3.tiered_min_words
+    if not ambiguous:
+        _TIER_STATS["cheap_pass"] += 1
+        return []
+
+    if _get_token_classifier() is None:
+        _TIER_STATS["clf_unavailable"] += 1
+        logger.warning(
+            "Tiered backend: token classifier unavailable for ambiguous "
+            "response from tool '%s'; falling back to heuristic verdict",
+            response.tool_name,
+        )
+        return _detect_instructions(text, response)
+
+    _TIER_STATS["escalated"] += 1
+    alerts = await _detect_instructions_classifier(text, response)
+    for alert in alerts:
+        alert.details["tiered_escalated"] = True
+        alert.details["heuristic_pattern_count"] = len(matched)
     return alerts
 
 

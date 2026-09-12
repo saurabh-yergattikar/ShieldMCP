@@ -54,17 +54,28 @@ async def run_framework_evaluation(
     benign_scenarios: list[BenignScenario],
     output_dir: Path,
     use_classifier: bool = False,
+    backend: str | None = None,
+    band_low: float | None = None,
+    min_words: int | None = None,
 ) -> dict:
     """Run evaluation using only the ShieldMCP framework (no LLM calls needed).
 
     Tests whether ShieldMCP's detection stages correctly identify attacks
     in tool descriptions and responses, and correctly pass benign content.
     """
+    from shieldmcp.stage1 import semantic as _s1
+    from shieldmcp.stage3 import response_analyzer as _s3
+
+    resolved_backend = backend or ("classifier" if use_classifier else "heuristic")
+
     def _make_config() -> ShieldMCPConfig:
         cfg = ShieldMCPConfig()
-        if use_classifier:
-            cfg.stage1.semantic_backend = "classifier"
-            cfg.stage3.instruction_detection_backend = "classifier"
+        cfg.stage1.semantic_backend = resolved_backend
+        cfg.stage3.instruction_detection_backend = resolved_backend
+        if band_low is not None:
+            cfg.stage1.tiered_band_low = band_low
+        if min_words is not None:
+            cfg.stage3.tiered_min_words = min_words
         return cfg
 
     config = _make_config()
@@ -78,8 +89,13 @@ async def run_framework_evaluation(
             "num_attack_scenarios": len(attack_scenarios),
             "num_benign_scenarios": len(benign_scenarios),
             "defense_mode": "shieldmcp",
+            "detection_backend": resolved_backend,
+            "tiered_band_low": config.stage1.tiered_band_low,
+            "tiered_min_words": config.stage3.tiered_min_words,
         },
     }
+    _s1.reset_tier_stats()
+    _s3.reset_tier_stats()
 
     # --- Attack Scenarios ---
     console.print(f"\n[bold]Running {len(attack_scenarios)} attack scenarios...[/bold]")
@@ -136,6 +152,13 @@ async def run_framework_evaluation(
 
     await pipeline.shutdown()
 
+    results["metadata"]["tier_stats_attack"] = {
+        "stage1": _s1.get_tier_stats(),
+        "stage3": _s3.get_tier_stats(),
+    }
+    _s1.reset_tier_stats()
+    _s3.reset_tier_stats()
+
     # --- Benign Scenarios ---
     console.print(f"\n[bold]Running {len(benign_scenarios)} benign scenarios...[/bold]")
 
@@ -191,6 +214,17 @@ async def run_framework_evaluation(
         })
 
     await pipeline2.shutdown()
+
+    results["metadata"]["tier_stats_benign"] = {
+        "stage1": _s1.get_tier_stats(),
+        "stage3": _s3.get_tier_stats(),
+    }
+    if resolved_backend == "tiered":
+        sa = results["metadata"]["tier_stats_attack"]
+        console.print(
+            f"[dim]Tier stats (attack run): stage1={sa['stage1']} "
+            f"stage3={sa['stage3']}[/dim]"
+        )
 
     # --- Print Results ---
     console.print("\n")
@@ -438,6 +472,13 @@ async def main() -> None:
                         help="Output directory for results")
     parser.add_argument("--classifier", action="store_true",
                         help="Use fine-tuned DistilBERT classifiers (Stage 1 + Stage 3)")
+    parser.add_argument("--backend", type=str, default=None,
+                        choices=["heuristic", "classifier", "tiered"],
+                        help="Detection backend for Stages 1 and 3 (overrides --classifier)")
+    parser.add_argument("--band-low", type=float, default=None,
+                        help="Tiered backend: Stage 1 escalation band lower edge")
+    parser.add_argument("--min-words", type=int, default=None,
+                        help="Tiered backend: Stage 3 escalation word-count floor")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -464,6 +505,9 @@ async def main() -> None:
         await run_framework_evaluation(
             attack_scenarios, benign_scenarios, output_dir,
             use_classifier=args.classifier,
+            backend=args.backend,
+            band_low=args.band_low,
+            min_words=args.min_words,
         )
     else:
         await run_full_evaluation(
