@@ -92,3 +92,27 @@ class TestStats:
         assert s["hits"] == 1
         assert s["misses"] == 1
         assert s["stores"] == 1
+
+
+class TestSemanticEligibilityGate:
+    def test_undeclared_tool_is_rejected_when_predicate_set(self):
+        c = _cache()
+        c.config.cacheable = lambda server, tool: tool in {"search", "read_file"}
+        k = c.make_key("s", "send_email", {}, "alice")
+        assert not c.put(k, "sent", verdict_passed=True, principal="alice",
+                         server_id="s", tool_name="send_email")
+        assert c.stats.rejected_uncacheable == 1
+
+    def test_declared_read_tool_is_admitted(self):
+        c = _cache()
+        c.config.cacheable = lambda server, tool: tool in {"search", "read_file"}
+        k = c.make_key("s", "search", {"q": "x"}, "alice")
+        assert c.put(k, "results", verdict_passed=True, principal="alice",
+                     server_id="s", tool_name="search")
+        assert c.get(k) is not None
+
+    def test_no_predicate_admits_all_tools(self):
+        c = _cache()
+        k = c.make_key("s", "anything", {}, "alice")
+        assert c.put(k, "x", verdict_passed=True, principal="alice",
+                     server_id="s", tool_name="anything")

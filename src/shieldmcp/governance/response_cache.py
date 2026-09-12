@@ -27,13 +27,26 @@ from typing import Any
 
 @dataclass
 class ResponseCacheConfig:
-    """Configuration for the governed response cache."""
+    """Configuration for the governed response cache.
+
+    ``cacheable`` is the semantic-safety gate: a predicate over
+    ``(server_id, tool_name)`` that should return True only for tools that
+    are read-only, idempotent, and freshness-tolerant. Reusing a response
+    for a side-effecting tool (send, create, delete) would silently skip
+    the side effect, and reusing one for a time-varying read (a balance, a
+    live status) would serve stale truth, so such tools must never be
+    declared cacheable. When no predicate is provided the cache treats
+    every tool as eligible, which is only appropriate for controlled
+    replay of retrieval-style traffic; production deployments should
+    always supply a predicate.
+    """
 
     enabled: bool = True
     ttl_seconds: float = 300.0
     max_entries: int = 4096
     per_principal: bool = True
     require_clean_verdict: bool = True
+    cacheable: Any = None  # Callable[[str, str], bool] | None
 
 
 @dataclass
@@ -45,6 +58,7 @@ class CacheStats:
     misses: int = 0
     stores: int = 0
     rejected_unclean: int = 0
+    rejected_uncacheable: int = 0
     expired: int = 0
     evicted: int = 0
 
@@ -55,6 +69,7 @@ class CacheStats:
             "misses": self.misses,
             "stores": self.stores,
             "rejected_unclean": self.rejected_unclean,
+            "rejected_uncacheable": self.rejected_uncacheable,
             "expired": self.expired,
             "evicted": self.evicted,
         }
@@ -128,11 +143,19 @@ class GovernedResponseCache:
         verdict_passed: bool,
         principal: str = "",
         now: float | None = None,
+        server_id: str = "",
+        tool_name: str = "",
     ) -> bool:
         """Store a response if admission gates allow it. Returns True if stored."""
         if not self.config.enabled:
             return False
         now = time.monotonic() if now is None else now
+
+        if self.config.cacheable is not None and not self.config.cacheable(
+            server_id, tool_name
+        ):
+            self.stats.rejected_uncacheable += 1
+            return False
 
         if self.config.require_clean_verdict and not verdict_passed:
             self.stats.rejected_unclean += 1
