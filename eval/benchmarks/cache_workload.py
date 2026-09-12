@@ -50,7 +50,14 @@ PRINCIPALS = ["alice", "bob"]
 
 
 def build_population() -> list[dict]:
-    """Items = every scenario that carries a response payload."""
+    """Items = attack scenarios with poisoned responses, plus every benign
+    scenario paired with the response its real benign server produces for the
+    scenario's parameters."""
+    import inspect
+
+    from benign_servers import servers as benign_servers_mod
+    from shieldmcp.stage3.response_analyzer import _extract_text
+
     items: list[dict] = []
     for s in get_all_attack_scenarios():
         if s.tool_response:
@@ -62,16 +69,26 @@ def build_population() -> list[dict]:
                 "poisoned": True,
                 "scenario_id": s.scenario_id,
             })
+
+    server_classes = [
+        cls for name, cls in inspect.getmembers(benign_servers_mod, inspect.isclass)
+        if name.endswith("Server") and name != "BenignMCPServer"
+    ]
+    servers_by_id = {inst.server_id: inst for inst in (cls() for cls in server_classes)}
+
     for s in get_all_benign_scenarios():
-        if s.expected_response:
-            items.append({
-                "server_id": s.server_id,
-                "tool_name": s.tool_name,
-                "params": s.parameters or {"query": s.scenario_id},
-                "response": s.expected_response,
-                "poisoned": False,
-                "scenario_id": s.scenario_id,
-            })
+        server = servers_by_id.get(s.server_id)
+        if server is None:
+            continue
+        raw = server.handle_call(s.tool_name, s.parameters or {})
+        items.append({
+            "server_id": s.server_id,
+            "tool_name": s.tool_name,
+            "params": s.parameters or {"scenario": s.scenario_id},
+            "response": _extract_text(raw),
+            "poisoned": False,
+            "scenario_id": s.scenario_id,
+        })
     return items
 
 
