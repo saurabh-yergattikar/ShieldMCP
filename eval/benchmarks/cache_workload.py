@@ -147,6 +147,10 @@ async def run_workload(
 
     served = 0
     blocked = 0
+    poisoned_blocked = 0
+    benign_blocked = 0
+    poisoned_requests = 0
+    benign_requests = 0
     unsafe_serves = 0
     unsafe_from_cache = 0
     validations = 0
@@ -156,6 +160,10 @@ async def run_workload(
     for i in range(requests):
         item = population[ranks[i]]
         principal = principals[i]
+        if item["poisoned"]:
+            poisoned_requests += 1
+        else:
+            benign_requests += 1
         t0 = time.perf_counter()
 
         if cache is not None:
@@ -185,6 +193,10 @@ async def run_workload(
 
         if was_blocked:
             blocked += 1
+            if item["poisoned"]:
+                poisoned_blocked += 1
+            else:
+                benign_blocked += 1
         else:
             served += 1
             if item["poisoned"]:
@@ -219,6 +231,10 @@ async def run_workload(
         "outcomes": {
             "served": served,
             "blocked": blocked,
+            "poisoned_requests": poisoned_requests,
+            "benign_requests": benign_requests,
+            "poisoned_blocked": poisoned_blocked,
+            "benign_blocked": benign_blocked,
             "unsafe_serves": unsafe_serves,
             "unsafe_from_cache": unsafe_from_cache,
             "validations": validations,
