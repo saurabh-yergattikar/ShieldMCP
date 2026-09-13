@@ -32,8 +32,9 @@ shieldmcp demo
 # Generate default config
 shieldmcp init
 
-# Scan tool descriptions from a file
-shieldmcp scan tools.json
+# Scan tool descriptions from a file (samples included)
+shieldmcp scan examples/tools.json            # benign server: passes
+shieldmcp scan examples/poisoned_tools.json   # poisoned server: blocked
 
 # Run as transparent proxy
 shieldmcp proxy -- python your_mcp_server.py

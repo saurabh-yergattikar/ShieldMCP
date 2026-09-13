@@ -1,0 +1,28 @@
+{
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get the current weather conditions and forecast for a city.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "city": {"type": "string", "description": "City name"}
+        },
+        "required": ["city"]
+      }
+    },
+    {
+      "name": "convert_currency",
+      "description": "Convert an amount from one currency to another using current exchange rates.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "amount": {"type": "number"},
+          "from_currency": {"type": "string"},
+          "to_currency": {"type": "string"}
+        },
+        "required": ["amount", "from_currency", "to_currency"]
+      }
+    }
+  ]
+}
