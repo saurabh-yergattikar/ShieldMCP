@@ -50,6 +50,9 @@ class StdioProxy:
         # use LSP-style Content-Length. We detect and mirror rather than assume.
         self._client_framing: str = "line"
         self._server_framing: str = "line"
+        # Shared stdout writer so blocked-call errors and server replies both
+        # reach the client without competing for sys.stdout.
+        self._client_writer: asyncio.StreamWriter | None = None
 
     async def start(self) -> None:
         """Start the proxy: initialize pipeline and spawn the real MCP server."""
@@ -67,6 +70,13 @@ class StdioProxy:
             self._server_process.pid,
         )
 
+        writer_transport, writer_protocol = await asyncio.get_event_loop().connect_write_pipe(
+            asyncio.streams.FlowControlMixin, sys.stdout.buffer
+        )
+        self._client_writer = asyncio.StreamWriter(
+            writer_transport, writer_protocol, None, asyncio.get_event_loop()
+        )
+
         await asyncio.gather(
             self._client_to_server(),
             self._server_to_client(),
@@ -74,23 +84,36 @@ class StdioProxy:
         )
 
     async def _client_to_server(self) -> None:
-        """Read from client (stdin), intercept, forward to server."""
+        """Read from client (stdin), intercept, forward to server.
+
+        When Stage 2 blocks an outbound tools/call, write a JSON-RPC error back
+        to the client (stdout) instead of forwarding the request to the server.
+        """
         reader = asyncio.StreamReader()
         protocol = asyncio.StreamReaderProtocol(reader)
         await asyncio.get_event_loop().connect_read_pipe(lambda: protocol, sys.stdin.buffer)
 
         assert self._server_process and self._server_process.stdin
+        assert self._client_writer is not None
 
         try:
             async for message, framing in _read_jsonrpc_messages(reader):
                 self._client_framing = framing
                 intercepted = await self._intercept_client_message(message)
-                if intercepted is not None:
-                    # Forward using the framing the server speaks (defaults to the
-                    # spec's newline-delimited form until the server reveals otherwise).
-                    frame = _encode_frame(intercepted, self._server_framing)
-                    self._server_process.stdin.write(frame)
-                    await self._server_process.stdin.drain()
+                if intercepted is None:
+                    continue
+                if "error" in intercepted:
+                    # Blocked request: return the error to the client; do not
+                    # forward anything to the server (matches SSE proxy behaviour).
+                    frame = _encode_frame(intercepted, self._client_framing)
+                    self._client_writer.write(frame)
+                    await self._client_writer.drain()
+                    continue
+                # Forward using the framing the server speaks (defaults to the
+                # spec's newline-delimited form until the server reveals otherwise).
+                frame = _encode_frame(intercepted, self._server_framing)
+                self._server_process.stdin.write(frame)
+                await self._server_process.stdin.drain()
         except (asyncio.CancelledError, ConnectionError):
             pass
         finally:
@@ -99,11 +122,7 @@ class StdioProxy:
     async def _server_to_client(self) -> None:
         """Read from server (subprocess stdout), intercept, forward to client."""
         assert self._server_process and self._server_process.stdout
-
-        writer_transport, writer_protocol = await asyncio.get_event_loop().connect_write_pipe(
-            asyncio.streams.FlowControlMixin, sys.stdout.buffer
-        )
-        writer = asyncio.StreamWriter(writer_transport, writer_protocol, None, asyncio.get_event_loop())
+        assert self._client_writer is not None
 
         try:
             async for message, framing in _read_jsonrpc_messages(self._server_process.stdout):
@@ -112,8 +131,8 @@ class StdioProxy:
                 if intercepted is not None:
                     # Forward using the framing the client speaks.
                     frame = _encode_frame(intercepted, self._client_framing)
-                    writer.write(frame)
-                    await writer.drain()
+                    self._client_writer.write(frame)
+                    await self._client_writer.drain()
         except (asyncio.CancelledError, ConnectionError):
             pass
 
