@@ -29,6 +29,7 @@ class AttackFamily(str, Enum):
     TOOL_POISONING = "tool_poisoning"
     INDIRECT_PROMPT_INJECTION = "indirect_prompt_injection"
     SUPPLY_CHAIN = "supply_chain"
+    PARAMETER_INJECTION = "parameter_injection"
     RUG_PULL = "rug_pull"
     CROSS_TOOL_CHAIN = "cross_tool_chain"
 
