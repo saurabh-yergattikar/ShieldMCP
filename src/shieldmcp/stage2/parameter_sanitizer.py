@@ -252,11 +252,16 @@ def _param_alert(
     detection_type: str,
     details: dict,
 ) -> SecurityAlert:
+    family = (
+        AttackFamily.SQL_INJECTION
+        if detection_type == "sql_injection"
+        else AttackFamily.INDIRECT_PROMPT_INJECTION
+    )
     return SecurityAlert(
         alert_id=str(uuid.uuid4()),
         stage=CheckStage.PARAMETER,
         severity=severity,
-        attack_family=AttackFamily.INDIRECT_PROMPT_INJECTION,
+        attack_family=family,
         action=Action.BLOCK if severity in (Severity.CRITICAL, Severity.HIGH) else Action.WARN,
         message=message,
         details={"detection_type": detection_type, **details},

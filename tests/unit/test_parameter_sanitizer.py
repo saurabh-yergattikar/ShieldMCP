@@ -3,7 +3,7 @@
 import pytest
 
 from shieldmcp.core.config import ShieldMCPConfig
-from shieldmcp.core.models import Action, ToolCall, ToolSignature
+from shieldmcp.core.models import Action, AttackFamily, ToolCall, ToolSignature
 from shieldmcp.stage2.parameter_sanitizer import validate_parameters
 
 
@@ -49,6 +49,22 @@ class TestSQLInjection:
         call = _make_call({"query": "SELECT name, email FROM users WHERE id = 42"})
         result = await validate_parameters(call, _make_sig(), config)
         assert result.passed
+
+    @pytest.mark.asyncio
+    async def test_sql_alert_uses_sql_injection_family(self, config):
+        call = _make_call({"query": "SELECT * FROM users UNION SELECT * FROM passwords"})
+        result = await validate_parameters(call, _make_sig(), config)
+        sql_alerts = [a for a in result.alerts if a.details.get("detection_type") == "sql_injection"]
+        assert sql_alerts
+        assert all(a.attack_family == AttackFamily.SQL_INJECTION for a in sql_alerts)
+
+    @pytest.mark.asyncio
+    async def test_non_sql_alert_keeps_indirect_prompt_injection_family(self, config):
+        call = _make_call({"command": "echo `rm -rf /`"})
+        result = await validate_parameters(call, _make_sig(), config)
+        shell_alerts = [a for a in result.alerts if a.details.get("detection_type") == "shell_injection"]
+        assert shell_alerts
+        assert all(a.attack_family == AttackFamily.INDIRECT_PROMPT_INJECTION for a in shell_alerts)
 
 
 class TestShellInjection:
