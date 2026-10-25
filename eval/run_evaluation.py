@@ -1,7 +1,8 @@
 """Main evaluation script — runs the full ShieldMCP benchmark.
 
-Reproduces the paper's Table 2 results by running all 487 attack scenarios
-and 200 benign scenarios across multiple LLM backends and defense modes.
+Runs the current 488 attack scenarios and 200 benign scenarios across
+multiple LLM backends and defense modes. Archived paper results used the
+original 487 attacks; the added curated example is not part of those results.
 
 Usage:
     # Full evaluation (all models, all scenarios, 3 repetitions)

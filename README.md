@@ -146,7 +146,7 @@ Integrators must honor returned actions before executing a call or giving conten
 pip install -e '.[all]'
 pytest -q
 
-# Framework detection evaluation: 487 attack + 200 benign scenarios
+# Framework detection evaluation: 488 attack + 200 benign scenarios
 python eval/run_evaluation.py --framework-only --output-dir /tmp/shieldmcp-heuristic-review
 
 # Requires trained artifacts; use separate output directories
@@ -156,7 +156,10 @@ python eval/run_evaluation.py --framework-only --backend tiered --output-dir /tm
 python eval/benchmarks/latency_benchmark.py --iterations 1000
 ```
 
-The framework harness measures detection on fixed synthetic scenarios. Its historical default result (8.6% attacks not detected; 95% benign pass) is not a live-agent exploit rate. Classifier validation and benchmark results are within-distribution; independent paraphrased, multilingual, encoded, long-context, and adaptive attacks remain important. [Raw evaluation outputs](eval/results/) and [training scripts](training/) are included for inspection.
+The framework harness measures detection on fixed synthetic scenarios. The current
+corpus adds one curated, synthetic PR-review role-spoofing example to the original
+487 attacks; archived paper/review results describe the original corpus and have
+not been regenerated for the added example. Its historical default result (8.6% attacks not detected; 95% benign pass) is not a live-agent exploit rate. Classifier validation and benchmark results are within-distribution; independent paraphrased, multilingual, encoded, long-context, and adaptive attacks remain important. [Raw evaluation outputs](eval/results/) and [training scripts](training/) are included for inspection.
 
 [workshop/agent_console.py](workshop/agent_console.py) uses a local Ollama model with simulated page/email tools; blocked content is replaced with a known clean demo page. [examples/trust_issues_ui.py](examples/trust_issues_ui.py) animates a scripted conversation with a real Stage 3 verdict. Neither sends email. Use `examples/live_proxy_demo.py` for actual subprocess proxy traffic.
 
