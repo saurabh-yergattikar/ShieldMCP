@@ -65,6 +65,10 @@ INSTRUCTIONAL_PATTERNS = [
         r"\bprocess\s+(all\s+)?requests?\s+without\s+(content\s+)?filter",
         r"\b(delete|drop|destroy|wipe|erase|remove)\s+(everything|all|all\s+\w+|the\s+database|the\s+table|the\s+records|the\s+files)\b",
         r"\b(give|send|email|forward)\b.{0,25}\b(password|passwords|credential|credentials|secret|secrets|api[_ ]?key|ssh\s+keys?)\b",
+        (
+            r"\b(note\s+to\s+(?:assistant|model|ai)|special\s+instructions?)\s*:\s*"
+            r".{0,50}\b(ignore|disregard|override|execute|reveal|call|exfiltrate)\b"
+        ),
     ]
 ]
 
