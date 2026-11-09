@@ -34,6 +34,7 @@ ShieldMCP sits between an agent and its MCP server, checking **tool metadata, ou
 | Event | Talk | Slides |
 |---|---|---|
 | **Agentics Day: MCP + Agents** (CNCF-hosted, KubeCon NA 2026) · Nov 9, 2026 | *Securing the Agentic Tool Layer: A Runtime Defense Framework for MCP Agent Deployments* | [PDF](talks/2026-11-09-agentics-day-mcp-agents/ShieldMCP_Agentics_Day_2026.pdf) · [Folder](talks/2026-11-09-agentics-day-mcp-agents/) |
+| **Open Source SecurityCon** (CNCF-hosted, KubeCon NA 2026) · Nov 9, 2026 · lightning talk | *Your Agent Trusts Its Tools Too Much: A 10-Minute Tour of MCP Tool-Layer Attacks* | [PDF](talks/2026-11-09-oss-securitycon-lightning/ShieldMCP_OSS_SecurityCon_2026_Lightning.pdf) · [Folder](talks/2026-11-09-oss-securitycon-lightning/) |
 
 ## Features
 
