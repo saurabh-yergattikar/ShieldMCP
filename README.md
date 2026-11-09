@@ -29,6 +29,12 @@ ShieldMCP sits between an agent and its MCP server, checking **tool metadata, ou
 
 `A*` refers to the **conference venues' ICORE2026 rankings**: [ACL](https://portal.core.edu.au/conf-ranks/196/), [EMNLP](https://portal.core.edu.au/conf-ranks/448/). The EMNLP paper appears as **69-DEMO** in the [official presentation schedule](https://docs.google.com/spreadsheets/d/1aXGTy_7Xeh-OXIs3iJSbDpUsZ6YhbfA76b17kBZH0Yk/edit?gid=943432490); its Anthology link will be added when available.
 
+## Talks
+
+| Event | Talk | Slides |
+|---|---|---|
+| **Agentics Day: MCP + Agents** (CNCF-hosted, KubeCon NA 2026) · Nov 9, 2026 | *Securing the Agentic Tool Layer: A Runtime Defense Framework for MCP Agent Deployments* | [PDF](talks/2026-11-09-agentics-day-mcp-agents/ShieldMCP_Agentics_Day_2026.pdf) · [Folder](talks/2026-11-09-agentics-day-mcp-agents/) |
+
 ## Features
 
 | Capability | What ShieldMCP provides | Availability |
