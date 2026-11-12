@@ -41,9 +41,17 @@ DIRECTIVE_KEYWORDS = [
     "overrides other", "overrides all", "override any",
 ]
 
+_TOOL_AUTHORITY_PROMOTION = (
+    r"\b(?:treat|regard)\s+(?:this|the\s+following)\s+tool\s+"
+    r"(?:description|response|output)\s+as\s+"
+    r"(?:(?:a|the|your)\s+)?(?:system|developer)\s+"
+    r"(?:prompt|message|instructions?)\b"
+)
+
 DIRECTIVE_PHRASES = [
     re.compile(p, re.IGNORECASE)
     for p in [
+        _TOOL_AUTHORITY_PROMOTION,
         r"\byou\s+(must|should|will|need\s+to|are\s+required)\b",
         r"\b(always|never)\s+(use|call|invoke|send|include|add)\b",
         r"\bwhen\s+the\s+user\b.{0,40}\b(instead|actually|redirect)\b",
@@ -61,6 +69,7 @@ DIRECTIVE_PHRASES = [
 HIGH_RISK_PHRASES = [
     re.compile(p, re.IGNORECASE)
     for p in [
+        _TOOL_AUTHORITY_PROMOTION,
         r"\b(give|send|share|reveal|provide|leak|email)\b.{0,25}\b(password|passwords|credential|credentials|secret|secrets|api[_ ]?key|ssh\s+keys?|token|tokens)\b",
         r"\b(delete|drop|destroy|wipe|erase|remove)\b.{0,15}\b(everything|all|all\s+data|the\s+database|the\s+table|records|files)\b",
         r"\b(ignore|disregard|forget|override)\b.{0,20}\b(previous|above|prior|all|the)\b.{0,15}\binstructions?\b",
